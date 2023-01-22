@@ -7,6 +7,7 @@ const IndexPage = () => {
 	const { foreignStream, myStream, startShare, stopShare } = useContext(StreamContext);
 	const [list, setList] = useState<string[]>([]);
 	const { socket } = useContext(SocketContext);
+	const [chat, setChat] = useState('');
 
 	const [isSecured, setIsSecured] = useState<string>('Dangerous');
 
@@ -35,6 +36,7 @@ const IndexPage = () => {
 
 	const sendText = (txt: string) => {
 		socket?.emit('test', txt);
+		setChat('');
 	};
 	return (
 		<main>
@@ -55,7 +57,8 @@ const IndexPage = () => {
 
 			<Container>
 				<Paper>
-					<TextInput onBlur={evt => sendText(evt.target.value)} />
+					<TextInput value={chat} onChange={evt => setChat(evt.target.value)} />
+					<Button onClick={() => sendText(chat)}></Button>
 				</Paper>
 
 				<List>
