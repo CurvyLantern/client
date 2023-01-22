@@ -1,4 +1,3 @@
-import Video from '@/components/Video';
 import { SocketContext } from '@/contexts/SocketContext';
 import { StreamContext } from '@/contexts/StreamContext';
 import { TextInput, Text, AspectRatio, Button, Container, Paper, List } from '@mantine/core';
