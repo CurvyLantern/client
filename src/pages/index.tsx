@@ -8,7 +8,7 @@ const IndexPage = () => {
 	const [list, setList] = useState<string[]>([]);
 	const { socket } = useContext(SocketContext);
 
-	const [isSecured, setIsSecured] = useState(false);
+	const [isSecured, setIsSecured] = useState<string>('Dangerous');
 
 	const handleStart = () => {
 		startShare();
