@@ -43,11 +43,11 @@ const IndexPage = () => {
 			</Title>
 			<Container size='sm'>
 				<AspectRatio ratio={16 / 9}>
-					<video ref={myStream} playsInline muted autoPlay />
+					<video ref={myStream} playsInline muted autoPlay controls />
 				</AspectRatio>
 				<Text> Other people</Text>
 				<AspectRatio ratio={16 / 9}>
-					<video ref={foreignStream} playsInline muted autoPlay />
+					<video ref={foreignStream} playsInline muted autoPlay controls />
 				</AspectRatio>
 			</Container>
 			<Button onClick={() => handleStart()}>Start Share</Button>
