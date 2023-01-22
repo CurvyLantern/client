@@ -1,12 +1,15 @@
 import { SocketContext } from '@/contexts/SocketContext';
 import { StreamContext } from '@/contexts/StreamContext';
-import { TextInput, Text, AspectRatio, Button, Container, Paper, List } from '@mantine/core';
+import { TextInput, Text, AspectRatio, Button, Container, Paper, List, Alert, Title } from '@mantine/core';
 import { forwardRef, useContext, useEffect, useRef, useState } from 'react';
 
 const IndexPage = () => {
 	const { foreignStream, myStream, startShare, stopShare } = useContext(StreamContext);
 	const [list, setList] = useState<string[]>([]);
 	const { socket } = useContext(SocketContext);
+
+	const [isSecured, setIsSecured] = useState(false);
+
 	const handleStart = () => {
 		startShare();
 	};
@@ -14,6 +17,11 @@ const IndexPage = () => {
 	const handleStop = () => {
 		stopShare();
 	};
+
+	useEffect(() => {
+		const txt = window.isSecureContext ? 'Secured' : 'Dangerous';
+		setIsSecured(txt);
+	}, []);
 
 	useEffect(() => {
 		const testFn = (txt: string) => {
@@ -30,6 +38,9 @@ const IndexPage = () => {
 	};
 	return (
 		<main>
+			<Title align='center' className='text-white' size={40} order={1}>
+				{isSecured}
+			</Title>
 			<Container size='sm'>
 				<AspectRatio ratio={16 / 9}>
 					<video ref={myStream} playsInline muted autoPlay />
