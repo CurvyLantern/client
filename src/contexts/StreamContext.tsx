@@ -13,14 +13,6 @@ const StreamContext = createContext<{
 type NullableMediaStream = MediaStream | null;
 
 const StreamProvider = ({ children }: { children: React.ReactNode }) => {
-	// const [myStream, setMyStream] = useState<NullableMediaStream>(null);
-	const [shareStream, setShareStream] = useState();
-	const [me, setMe] = useState();
-	const [call, setCall] = useState<any>();
-	const [callAccepted, setCallAccepted] = useState(false);
-	const [callEnded, setCallEnded] = useState(false);
-	const receivePeer = useRef();
-
 	const myStream = useRef<any>();
 	const foreignStream = useRef<any>();
 
@@ -58,7 +50,7 @@ const StreamProvider = ({ children }: { children: React.ReactNode }) => {
 				myPeer.current.on('signal', data => {
 					socket.emit('signal', { signal: data });
 				});
-			} 
+			}
 			myPeer.current.signal(signal);
 
 			console.log('receiving');
