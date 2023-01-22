@@ -49,8 +49,7 @@ const StreamProvider = ({ children }: { children: React.ReactNode }) => {
 					trickle: false,
 				});
 			}
-			if (isSending.current) {
-			} else {
+			if (!isSending.current) {
 				myPeer.current.on('stream', curStream => {
 					if (!foreignStream.current) return;
 					foreignStream.current.srcObject = curStream;
@@ -59,10 +58,13 @@ const StreamProvider = ({ children }: { children: React.ReactNode }) => {
 				myPeer.current.on('signal', data => {
 					socket.emit('signal', { signal: data });
 				});
-			}
+			} 
 			myPeer.current.signal(signal);
 
 			console.log('receiving');
+		});
+		socket.on('share-end', () => {
+			myPeer.current?.destroy();
 		});
 	}, [socket]);
 
