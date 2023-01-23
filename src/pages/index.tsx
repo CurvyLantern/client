@@ -176,7 +176,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		if (myVideoRef.current) {
 			myVideoRef.current.srcObject = null;
 		}
-		socket?.emit('leave-room', { roomId });
+		socket?.emit('host:leave-room', { roomId });
 		socket?.disconnect();
 		setIsHosting(false);
 	};
@@ -237,6 +237,9 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const handleJoinRoom = () => {
 		setOpenModal(true);
 	};
+
+	const [isReceiving, setReceiving] = useState(false);
+	const receivePeerRef = useRef<Peer.Instance>();
 	const connectToRoom = async () => {
 		try {
 			const s = await initSocket({
@@ -246,7 +249,11 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			});
 			s.connect();
 			s.emit('user-join-room', roomCode);
-			setRoomId(roomId);
+			setRoomId(roomCode);
+
+			s.on('host-left', () => {
+				myVideoRef.current!.srcObject = null;
+			});
 
 			s.on('signal-from-host', ({ signal }) => {
 				console.log(signal, 'signal-from-host');
@@ -276,6 +283,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						],
 					},
 				});
+				receivePeerRef.current = receivePeer;
 
 				receivePeer.on('stream', curStream => {
 					if (!hasVideo) {
@@ -296,6 +304,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					});
 				});
 				receivePeer.signal(signal);
+				setReceiving(true);
 			});
 
 			setRoomCode('');
@@ -304,16 +313,31 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			console.error(error);
 		}
 	};
-	
-	const [isSecured,setSecured] = useState(false)
+
+	const handleStopWatching = () => {
+		if (socket) {
+			socket.emit('leave-room', { roomId });
+			socket.disconnect();
+		}
+		if (receivePeerRef.current) {
+			receivePeerRef.current.destroy();
+		}
+		if (myVideoRef.current) {
+			myVideoRef.current.srcObject = null;
+		}
+		setReceiving(false);
+		setHasVideo(false);
+	};
+
+	const [isSecured, setSecured] = useState(false);
 	useEffect(() => {
-		setSecured(window.isSecureContext)
-	},[])
+		setSecured(window.isSecureContext);
+	}, []);
 	return (
 		<main>
 			<Container>
 				<Center className='h-screen '>
-					 <Text>{isSecured ? 'secured' : 'nonsecured'}</Text>
+					<Text>{isSecured ? 'secured' : 'nonsecured'}</Text>
 					<Grid gutter={'md'} className='w-full'>
 						<Grid.Col span={12}>
 							<AspectRatio ratio={16 / 9}>
@@ -323,15 +347,14 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 									}}
 									ref={myVideoRef}
 									playsInline
-									autoPlay
-									muted></video>
+									autoPlay></video>
 
 								<Skeleton visible={!hasVideo} animate={false}></Skeleton>
 							</AspectRatio>
 						</Grid.Col>
 						<Grid.Col>
 							<Text align='center'>room id : {roomId ? roomId : 'No room id'}</Text>
-							<Text align='center'>user id : {userId}</Text>
+							{/* <Text align='center'>user id : {userId}</Text> */}
 						</Grid.Col>
 
 						{isHosting ? (
@@ -343,6 +366,18 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 											handleCancelHost();
 										}}>
 										Cancel Host
+									</Button>
+								</Grid.Col>
+							</>
+						) : isReceiving ? (
+							<>
+								<Grid.Col span={12}>
+									<Button
+										fullWidth
+										onClick={() => {
+											handleStopWatching();
+										}}>
+										Leave Room
 									</Button>
 								</Grid.Col>
 							</>
