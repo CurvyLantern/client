@@ -52,15 +52,20 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					resolve(socket);
 					return;
 				}
-				const s = io('http://localhost:8000', {
-					...opts,
-					transports: ['websocket'],
-					auth: {
-						userId,
-						...auth,
-					},
-					autoConnect: false,
-				});
+				const s = io(
+					process.env.NEXT_PUBLIC_VERCEL_ENV === 'development'
+						? 'http://localhost:8000'
+						: 'https://rtc-backend.onrender.com/',
+					{
+						...opts,
+						transports: ['websocket'],
+						auth: {
+							userId,
+							...auth,
+						},
+						autoConnect: false,
+					}
+				);
 				setSocket(s);
 				setTimeout(() => {
 					resolve(s);
