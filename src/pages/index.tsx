@@ -76,19 +76,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	);
 	const getStream = async () => {
 		try {
-			const permission = await window.navigator.mediaDevices.getUserMedia({
-				audio: true,
-				video: true,
-			});
 			const curStream = await window.navigator.mediaDevices.getDisplayMedia({
-				audio: {
-					echoCancellation: true,
-					noiseSuppression: true,
-					sampleRate: 44100,
-				},
+				audio: true,
 				video: {
-					aspectRatio: 16 / 9,
-					frameRate: 30,
+					frameRate: 60,
 				},
 			});
 			//@ts-ignore
