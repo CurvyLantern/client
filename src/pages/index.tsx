@@ -52,7 +52,6 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					resolve(socket);
 					return;
 				}
-				console.log(process.env.NODE_ENV, process.env.NEXT_PUBLIC_VERCEL_ENV);
 				const s = io(
 					process.env.NODE_ENV === 'development'
 						? 'http://localhost:8000'
@@ -95,7 +94,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const createHostPeer = () => {
 		const peer = new Peer({
 			initiator: true,
-			trickle: false,
+			trickle: true,
 			stream: hostStreamRef.current,
 			config: {
 				iceServers: [
@@ -188,11 +187,21 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 			// when client tries to connect with me
 			sock.on('host:on-client-connect', ({ signal, userId }) => {
-				console.log('this thing should be executed only once');
 				if (hostPeers.has(userId)) {
-					const Value = hostPeers.get(userId)!;
+					const value = hostPeers.get(userId)!;
 
-					Value.peer.signal(signal);
+					value.peer.signal(signal);
+				}
+			});
+
+			//when someone leaves
+			sock.on('user-left', ({ socketId, userId }) => {
+				if (hostPeers.has(userId)) {
+					const value = hostPeers.get(userId);
+					value?.peer.destroy();
+					hostPeers.delete(userId);
+
+					setHostPeers(new Map(hostPeers));
 				}
 			});
 
@@ -224,7 +233,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			s.on('signal-from-host', ({ signal }) => {
 				const receivePeer = new Peer({
 					initiator: false,
-					trickle: false,
+					trickle: true,
 					config: {
 						iceServers: [
 							{
@@ -288,7 +297,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	const handleStopWatching = () => {
 		if (socket) {
-			socket.emit('leave-room', { roomId });
+			socket.emit('leave-room', { roomId, userId });
 			socket.disconnect();
 		}
 		if (receivePeerRef.current) {
