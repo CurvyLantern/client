@@ -52,8 +52,9 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					resolve(socket);
 					return;
 				}
+				console.log(process.env.NODE_ENV, process.env.NEXT_PUBLIC_VERCEL_ENV);
 				const s = io(
-					process.env.NEXT_PUBLIC_VERCEL_ENV === 'development'
+					process.env.NODE_ENV === 'development'
 						? 'http://localhost:8000'
 						: 'https://rtc-backend.onrender.com/',
 					{
@@ -221,7 +222,6 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			});
 
 			s.on('signal-from-host', ({ signal }) => {
-				console.log(signal, 'signal-from-host');
 				const receivePeer = new Peer({
 					initiator: false,
 					trickle: false,
@@ -254,9 +254,15 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					if (!hasVideo) {
 						setHasVideo(true);
 					}
-					myVideoRef.current!.srcObject = curStream;
-					// if (myVideoRef.current) {
-					// }
+					console.log(curStream);
+					if (myVideoRef.current) {
+						myVideoRef.current.srcObject = curStream;
+						console.log('has my video');
+						myVideoRef.current.onloadedmetadata = () => {
+							console.log('on loaded meta');
+							myVideoRef.current?.play();
+						};
+					}
 				});
 
 				receivePeer.on('signal', data => {
@@ -274,6 +280,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 			setRoomCode('');
 			setOpenModal(false);
+			setReceiving(true);
 		} catch (error) {
 			console.error(error);
 		}
