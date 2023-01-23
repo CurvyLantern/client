@@ -70,21 +70,33 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		[socket]
 	);
 	const getStream = async () => {
-		const curStream = await window.navigator.mediaDevices.getDisplayMedia({
-			audio: {
-				echoCancellation: true,
-				noiseSuppression: true,
-				sampleRate: 44100,
-			},
-			video: {
-				aspectRatio: 16 / 9,
-				frameRate: 60,
-			},
-		});
-		//@ts-ignore
-		curStream.oninactive = handleCancelHost;
-		hostedStream.current = curStream;
-		return curStream;
+		try {
+			const permission = await window.navigator.mediaDevices.getUserMedia({
+				audio: true,
+				video: true,
+			});
+			if (permission) {
+				const curStream = await window.navigator.mediaDevices.getDisplayMedia({
+					audio: {
+						echoCancellation: true,
+						noiseSuppression: true,
+						sampleRate: 44100,
+					},
+					video: {
+						aspectRatio: 16 / 9,
+						frameRate: 60,
+					},
+				});
+				//@ts-ignore
+				curStream.oninactive = handleCancelHost;
+				hostedStream.current = curStream;
+				return curStream;
+			} else {
+				return null;
+			}
+		} catch (error) {
+			return null;
+		}
 	};
 
 	const createHostPeer = () => {
@@ -122,53 +134,6 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		return nanoid(len);
 	};
 
-	// useEffect(() => {
-	// 	if (!socket) return;
-
-	// 	if (isHosting && roomId) {
-	// 		// socket.on('user-joined', ({ userId, socketId, roomId }) => {
-	// 		// 	console.log('new user joined');
-	// 		// 	const newHostPeer = createHostPeer();
-	// 		// 	hostPeers.set(userId, {
-	// 		// 		peer: newHostPeer,
-	// 		// 		used: false,
-	// 		// 	});
-	// 		// 	setHostPeers(new Map(hostPeers));
-	// 		// });
-
-	// 		// socket.on('host:on-client-connect', ({ signal, userId }) => {
-	// 		// 	console.log('this thing should be executed only once');
-	// 		// 	if (hostPeers.has(userId)) {
-	// 		// 		const Value = hostPeers.get(userId)!;
-
-	// 		// 		Value.peer.signal(signal);
-	// 		// 	}
-	// 		// });
-
-	// 		if (hostPeers.size > 0) {
-	// 			hostPeers.forEach(({ peer, used }, userId) => {
-	// 				console.log({ used });
-	// 				if (used) return;
-	// 				hostPeers.get(userId)!.used = true;
-	// 				peer.on('signal', data => {
-	// 					//do something
-	// 					socket.emit('client:connect-from-host', {
-	// 						userId,
-	// 						signal: data,
-	// 						roomId,
-	// 					});
-	// 				});
-
-	// 				// setHostPeers(new Map(hostPeers))
-	// 			});
-	// 		}
-	// 	}
-
-	// 	return () => {
-	// 		socket?.disconnect();
-	// 	};
-	// }, [socket, hostPeers, isHosting, roomId]);
-
 	const handleCancelHost = () => {
 		hostedStream.current?.getTracks().forEach(track => {
 			track.stop();
@@ -183,55 +148,60 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	const handleHost = async () => {
 		if (!window.isSecureContext) return;
-		const sock = await initSocket({
-			auth: {
-				isHosting: 'yes',
-			},
-		});
 
-		hostStreamRef.current = await getStream();
+		try {
+			const stream = await getStream();
+			if (!stream) throw new Error('no permission given');
 
-		if (myVideoRef.current && hostStreamRef.current) {
-			if (!hasVideo) {
-				setHasVideo(true);
+			hostStreamRef.current = stream;
+			const sock = await initSocket({
+				auth: {
+					isHosting: 'yes',
+				},
+			});
+			if (myVideoRef.current && hostStreamRef.current) {
+				if (!hasVideo) {
+					setHasVideo(true);
+				}
+				myVideoRef.current.srcObject = hostStreamRef.current;
 			}
-			myVideoRef.current.srcObject = hostStreamRef.current;
-		}
-		const roomId = createRoomId(8);
-		setRoomId(roomId);
-		sock.connect();
-		sock.emit('create-room', roomId);
 
-		// when user joins my room
-		sock.on('user-joined', ({ userId, socketId, roomId }) => {
-			console.log('new user joined');
-			const newHostPeer = createHostPeer();
-			newHostPeer.on('signal', data => {
-				sock.emit('client:connect-from-host', {
-					userId,
-					signal: data,
-					roomId,
+			const roomId = createRoomId(8);
+			setRoomId(roomId);
+			sock.connect();
+			sock.emit('create-room', roomId);
+
+			// when user joins my room
+			sock.on('user-joined', ({ userId, socketId, roomId }) => {
+				console.log('new user joined');
+				const newHostPeer = createHostPeer();
+				newHostPeer.on('signal', data => {
+					sock.emit('client:connect-from-host', {
+						userId,
+						signal: data,
+						roomId,
+					});
 				});
+
+				hostPeers.set(userId, {
+					peer: newHostPeer,
+					used: true,
+				});
+				setHostPeers(new Map(hostPeers));
 			});
 
-			hostPeers.set(userId, {
-				peer: newHostPeer,
-				used: true,
+			// when client tries to connect with me
+			sock.on('host:on-client-connect', ({ signal, userId }) => {
+				console.log('this thing should be executed only once');
+				if (hostPeers.has(userId)) {
+					const Value = hostPeers.get(userId)!;
+
+					Value.peer.signal(signal);
+				}
 			});
-			setHostPeers(new Map(hostPeers));
-		});
 
-		// when client tries to connect with me
-		sock.on('host:on-client-connect', ({ signal, userId }) => {
-			console.log('this thing should be executed only once');
-			if (hostPeers.has(userId)) {
-				const Value = hostPeers.get(userId)!;
-
-				Value.peer.signal(signal);
-			}
-		});
-
-		setIsHosting(true);
+			setIsHosting(true);
+		} catch (error) {}
 	};
 
 	const handleJoinRoom = () => {
@@ -347,7 +317,9 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 									}}
 									ref={myVideoRef}
 									playsInline
-									autoPlay></video>
+									onLoadedMetadata={() => {
+										myVideoRef.current?.play();
+									}}></video>
 
 								<Skeleton visible={!hasVideo} animate={false}></Skeleton>
 							</AspectRatio>
