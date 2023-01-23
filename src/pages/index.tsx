@@ -298,15 +298,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		setHasVideo(false);
 	};
 
-	const [isSecured, setSecured] = useState(false);
-	useEffect(() => {
-		setSecured(window.isSecureContext);
-	}, []);
 	return (
 		<main>
 			<Container>
 				<Center className='h-screen '>
-					<Text>{isSecured ? 'secured' : 'nonsecured'}</Text>
 					<Grid gutter={'md'} className='w-full'>
 						<Grid.Col span={12}>
 							<AspectRatio ratio={16 / 9}>
