@@ -84,7 +84,11 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					},
 					video: {
 						aspectRatio: 16 / 9,
-						frameRate: 60,
+						frameRate: {
+							max: 60,
+							ideal: 60,
+							min: 30,
+						},
 					},
 				});
 				//@ts-ignore
