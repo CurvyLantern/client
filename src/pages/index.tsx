@@ -75,29 +75,21 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 				audio: true,
 				video: true,
 			});
-			if (permission) {
-				const curStream = await window.navigator.mediaDevices.getDisplayMedia({
-					audio: {
-						echoCancellation: true,
-						noiseSuppression: true,
-						sampleRate: 44100,
-					},
-					video: {
-						aspectRatio: 16 / 9,
-						frameRate: {
-							max: 60,
-							ideal: 60,
-							min: 30,
-						},
-					},
-				});
-				//@ts-ignore
-				curStream.oninactive = handleCancelHost;
-				hostedStream.current = curStream;
-				return curStream;
-			} else {
-				return null;
-			}
+			const curStream = await window.navigator.mediaDevices.getDisplayMedia({
+				audio: {
+					echoCancellation: true,
+					noiseSuppression: true,
+					sampleRate: 44100,
+				},
+				video: {
+					aspectRatio: 16 / 9,
+					frameRate: 30,
+				},
+			});
+			//@ts-ignore
+			curStream.oninactive = handleCancelHost;
+			hostedStream.current = curStream;
+			return curStream;
 		} catch (error) {
 			return null;
 		}
@@ -163,11 +155,14 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					isHosting: 'yes',
 				},
 			});
-			if (myVideoRef.current && hostStreamRef.current) {
+			if (myVideoRef.current) {
 				if (!hasVideo) {
 					setHasVideo(true);
 				}
-				myVideoRef.current.srcObject = hostStreamRef.current;
+				myVideoRef.current.srcObject = stream;
+				myVideoRef.current.onloadedmetadata = () => {
+					myVideoRef.current?.play();
+				};
 			}
 
 			const roomId = createRoomId(8);
@@ -320,10 +315,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 										display: hasVideo ? 'block' : 'none',
 									}}
 									ref={myVideoRef}
-									playsInline
-									onLoadedMetadata={() => {
-										myVideoRef.current?.play();
-									}}></video>
+									playsInline></video>
 
 								<Skeleton visible={!hasVideo} animate={false}></Skeleton>
 							</AspectRatio>
