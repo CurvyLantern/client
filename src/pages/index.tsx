@@ -256,52 +256,54 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 			s.on('signal-from-host', ({ signal }) => {
 				setDebug(prev => [...prev, 'received signal from host']);
-				const receivePeer = new Peer({
-					initiator: false,
-					trickle: true,
-					stream: hostStreamRef.current,
-					iceCompleteTimeout: 10000,
-					config: {
-						iceServers: [...mine.iceServers],
-						iceTransportPolicy: 'all',
-						bundlePolicy: 'balanced',
-					},
-				});
-				receivePeerRef.current = receivePeer;
-
-				receivePeer.on('stream', curStream => {
-					if (!hasVideo) {
-						setHasVideo(true);
-					}
-					const temp = JSON.stringify({ strream: curStream });
-					setDebug(prev => [...prev, temp]);
-					hostedStream.current = curStream;
-					if (myVideoRef.current) {
-						setDebug(prev => [...prev, 'video exists']);
-						myVideoRef.current.srcObject = curStream;
-						myVideoRef.current.onloadedmetadata = () => {
-							setDebug(prev => [...prev, 'video will play now']);
-							myVideoRef.current?.play();
-						};
-					}
-				});
-
-				receivePeer.on('signal', data => {
-					s.emit('connect-with-host', {
-						socketId: s.id,
-						signal: data,
-						userId,
-						roomId: roomCode,
+				if (!receivePeerRef.current) {
+					const receivePeer = new Peer({
+						initiator: false,
+						trickle: true,
+						stream: hostStreamRef.current,
+						iceCompleteTimeout: 10000,
+						config: {
+							iceServers: [...mine.iceServers],
+							iceTransportPolicy: 'all',
+							bundlePolicy: 'balanced',
+						},
 					});
-				});
-				receivePeer.on('error', err => {
-					console.log(err);
-					receivePeer.destroy();
-				});
-				receivePeer.on('connect', () => {
-					console.log(`client connected to host`);
-				});
-				receivePeer.signal(signal);
+					receivePeerRef.current = receivePeer;
+					receivePeer.on('stream', curStream => {
+						if (!hasVideo) {
+							setHasVideo(true);
+						}
+						const temp = JSON.stringify({ strream: curStream });
+						setDebug(prev => [...prev, temp]);
+						hostedStream.current = curStream;
+						if (myVideoRef.current) {
+							setDebug(prev => [...prev, 'video exists']);
+							myVideoRef.current.srcObject = curStream;
+							myVideoRef.current.onloadedmetadata = () => {
+								setDebug(prev => [...prev, 'video will play now']);
+								myVideoRef.current?.play();
+							};
+						}
+					});
+
+					receivePeer.on('signal', data => {
+						s.emit('connect-with-host', {
+							socketId: s.id,
+							signal: data,
+							userId,
+							roomId: roomCode,
+						});
+					});
+					receivePeer.on('error', err => {
+						console.log(err);
+						receivePeer?.destroy();
+					});
+					receivePeer.on('connect', () => {
+						console.log(`client connected to host`);
+					});
+					receivePeer.signal(signal);
+				}
+
 				setReceiving(true);
 			});
 
