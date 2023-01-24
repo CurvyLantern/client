@@ -11,12 +11,16 @@ import {
 	TextInput,
 	useMantineTheme,
 } from '@mantine/core';
+import { useFullscreen } from '@mantine/hooks';
 import { getCookie, setCookie } from 'cookies-next';
 import { nanoid } from 'nanoid';
 import { GetServerSideProps } from 'next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Peer from 'simple-peer';
 import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
+
+import dynamic from 'next/dynamic';
+import { VideoJS } from '@/components/VideoJs';
 
 interface IndexPageProps {
 	userId: string;
@@ -32,7 +36,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const [hasVideo, setHasVideo] = useState(false);
 
 	//refs
-	const myVideoRef = useRef<HTMLVideoElement>(null);
+	const myVideoRef = useRef<HTMLVideoElement>();
 	const hostStreamRef = useRef<MediaStream>();
 	const [socket, setSocket] = useState<Socket>();
 	const [hostPeers, setHostPeers] = useState<
@@ -44,6 +48,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			}
 		>
 	>(new Map());
+	const [videoPlaying, setVideoPlaying] = useState(false);
 
 	const initSocket = useCallback(
 		({ auth, ...opts }: Partial<ManagerOptions & SocketOptions>): Promise<Socket> => {
@@ -168,7 +173,6 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 			// when user joins my room
 			sock.on('user-joined', ({ userId, socketId, roomId }) => {
-				console.log('new user joined');
 				const newHostPeer = createHostPeer();
 				newHostPeer.on('signal', data => {
 					sock.emit('client:connect-from-host', {
@@ -263,19 +267,16 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					if (!hasVideo) {
 						setHasVideo(true);
 					}
-					console.log(curStream);
+					hostedStream.current = curStream;
 					if (myVideoRef.current) {
 						myVideoRef.current.srcObject = curStream;
-						console.log('has my video');
 						myVideoRef.current.onloadedmetadata = () => {
-							console.log('on loaded meta');
 							myVideoRef.current?.play();
 						};
 					}
 				});
 
 				receivePeer.on('signal', data => {
-					console.log('sending signal to host', roomId, 'roomId', roomCode);
 					s.emit('connect-with-host', {
 						socketId: s.id,
 						signal: data,
@@ -317,14 +318,24 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					<Grid gutter={'md'} className='w-full'>
 						<Grid.Col span={12}>
 							<AspectRatio ratio={16 / 9}>
-								<video
+								<VideoJS
+									visible={hasVideo}
+									responsive
+									playsinline
+									fill
+									controls
+									onReady={player => {
+										const tech = player.tech();
+										const el = tech.el();
+										myVideoRef.current = el as HTMLVideoElement;
+									}}></VideoJS>
+
+								{/* <video
 									style={{
 										display: hasVideo ? 'block' : 'none',
 									}}
 									ref={myVideoRef}
-									playsInline></video>
-
-								<Skeleton visible={!hasVideo} animate={false}></Skeleton>
+									playsInline></video> */}
 							</AspectRatio>
 						</Grid.Col>
 						<Grid.Col>
