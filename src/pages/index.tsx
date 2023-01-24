@@ -379,7 +379,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	return (
 		<main>
-			<Text align='center'>{JSON.stringify(debug)}</Text>
+			{process.env.NODE_ENV === 'development' ? <Text align='center'>{JSON.stringify(debug)}</Text> : null}
 			<Container>
 				<Center className='h-screen '>
 					<Grid gutter={'md'} className='w-full'>
