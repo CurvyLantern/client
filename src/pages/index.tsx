@@ -6,6 +6,7 @@ import {
 	Flex,
 	Grid,
 	Modal,
+	NumberInput,
 	Skeleton,
 	Text,
 	TextInput,
@@ -54,7 +55,14 @@ interface IndexPageProps {
 
 const IndexPage = ({ userId }: IndexPageProps) => {
 	const [roomCode, setRoomCode] = useState('');
-	const [openModal, setOpenModal] = useState(false);
+	const [frameRate, setFrameRate] = useState<number>(0);
+	const [modalState, setModalState] = useState<{
+		open: boolean;
+		mode: 'host' | 'client' | undefined;
+	}>({
+		open: false,
+		mode: undefined,
+	});
 	const [isHosting, setIsHosting] = useState(false);
 	const [roomId, setRoomId] = useState('');
 	const theme = useMantineTheme();
@@ -105,12 +113,12 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		},
 		[socket]
 	);
-	const getStream = async () => {
+	const getStream = async ({ frameRate = 30 }: { frameRate: number }) => {
 		try {
 			const curStream = await window.navigator.mediaDevices.getDisplayMedia({
 				audio: true,
 				video: {
-					frameRate: 60,
+					frameRate,
 				},
 			});
 			//@ts-ignore
@@ -155,10 +163,14 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	};
 
 	const handleHost = async () => {
+		setModalState({
+			open: false,
+			mode: undefined,
+		});
 		if (!window.isSecureContext) return;
 
 		try {
-			const stream = await getStream();
+			const stream = await getStream({ frameRate });
 			if (!stream) throw new Error('no permission given');
 
 			hostStreamRef.current = stream;
@@ -232,7 +244,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	};
 
 	const handleJoinRoom = () => {
-		setOpenModal(true);
+		setModalState({
+			open: true,
+			mode: 'client',
+		});
 	};
 
 	const [isReceiving, setReceiving] = useState(false);
@@ -310,7 +325,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			});
 
 			setRoomCode('');
-			setOpenModal(false);
+			setModalState({
+				open: false,
+				mode: undefined,
+			});
 			setReceiving(true);
 		} catch (error) {
 			console.error(error);
@@ -395,7 +413,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 									<Button
 										fullWidth
 										onClick={() => {
-											handleHost();
+											setModalState({
+												open: true,
+												mode: 'host',
+											});
 										}}>
 										Host
 									</Button>
@@ -414,27 +435,49 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			<Modal
 				trapFocus
 				centered
-				opened={openModal}
-				onClose={() => setOpenModal(false)}
+				opened={modalState.open}
+				onClose={() =>
+					setModalState({
+						open: false,
+						mode: undefined,
+					})
+				}
 				overlayOpacity={0.7}
 				overlayBlur={3}
 				overlayColor={theme.colorScheme === 'dark' ? theme.colors.dark[9] : theme.colors.gray[2]}>
 				<Flex direction={'column'} rowGap={30}>
-					<TextInput
-						styles={theme => ({
-							input: {
-								textAlign: 'center',
-							},
-						})}
-						size='xl'
-						placeholder='Enter room code'
-						className='text-center'
-						value={roomCode}
-						onChange={evt => setRoomCode(evt.currentTarget.value)}
-					/>
-					<Button variant='outline' onClick={() => connectToRoom()}>
-						Proceed
-					</Button>
+					{modalState.mode === 'client' ? (
+						<>
+							<TextInput
+								styles={theme => ({
+									input: {
+										textAlign: 'center',
+									},
+								})}
+								size='xl'
+								placeholder='Enter room code'
+								className='text-center'
+								value={roomCode}
+								onChange={evt => setRoomCode(evt.currentTarget.value)}
+							/>
+							<Button variant='outline' onClick={() => connectToRoom()}>
+								Proceed
+							</Button>
+						</>
+					) : modalState.mode === 'host' ? (
+						<>
+							<Button variant='outline' onClick={() => setFrameRate(30)}>
+								30 fps
+							</Button>
+							<Button variant='outline' onClick={() => setFrameRate(60)}>
+								60 fps
+							</Button>
+							<NumberInput value={frameRate} onChange={evt => setFrameRate(Number(evt))} />
+							<Button variant='outline' onClick={() => handleHost()}>
+								Proceed
+							</Button>
+						</>
+					) : null}
 				</Flex>
 			</Modal>
 		</main>
