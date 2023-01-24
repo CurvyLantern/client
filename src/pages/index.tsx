@@ -219,6 +219,8 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	const [isReceiving, setReceiving] = useState(false);
 	const receivePeerRef = useRef<Peer.Instance>();
+	
+	const [debug, setDebug] = useState<string[]>([]);
 	const connectToRoom = async () => {
 		try {
 			const s = await initSocket({
@@ -267,6 +269,8 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					if (!hasVideo) {
 						setHasVideo(true);
 					}
+					const temp = JSON.stringify({ strream: curStream });
+					setDebug(prev => [...prev, temp]);
 					hostedStream.current = curStream;
 					if (myVideoRef.current) {
 						myVideoRef.current.srcObject = curStream;
@@ -313,6 +317,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	return (
 		<main>
+			{JSON.stringify(debug)}
 			<Container>
 				<Center className='h-screen '>
 					<Grid gutter={'md'} className='w-full'>
