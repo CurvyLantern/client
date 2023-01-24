@@ -302,6 +302,8 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						console.log(`client connected to host`);
 					});
 					receivePeer.signal(signal);
+				} else {
+					receivePeerRef.current.signal(signal);
 				}
 
 				setReceiving(true);
