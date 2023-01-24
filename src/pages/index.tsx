@@ -84,6 +84,18 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	>(new Map());
 	const [videoPlaying, setVideoPlaying] = useState(false);
 
+	const dumpOptionsInfo = (stream: MediaStream) => {
+		const tracks = stream.getTracks();
+
+		if (!tracks) return;
+		for (let track of tracks) {
+			console.info('Track settings:');
+			console.info(JSON.stringify(track.getSettings(), null, 2));
+			console.info('Track constraints:');
+			console.info(JSON.stringify(track.getConstraints(), null, 2));
+		}
+	};
+
 	const initSocket = useCallback(
 		({ auth, ...opts }: Partial<ManagerOptions & SocketOptions>): Promise<Socket> => {
 			return new Promise((resolve, reject) => {
@@ -116,14 +128,29 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const getStream = async ({ frameRate = 30 }: { frameRate: number }) => {
 		try {
 			const curStream = await window.navigator.mediaDevices.getDisplayMedia({
-				audio: true,
+				audio: {
+					echoCancellation: false,
+					noiseSuppression: false,
+					//@ts-ignore
+					latency: 100,
+					channelCount: 1,
+					frameRate,
+					sampleRate: 8000,
+					sampleSize: 8,
+					autoGainControl: false,
+				},
 				video: {
+					height: 720,
+					aspectRatio: 16 / 9,
 					frameRate,
 				},
 			});
 			//@ts-ignore
 			curStream.oninactive = handleCancelHost;
 			hostedStream.current = curStream;
+
+			dumpOptionsInfo(curStream);
+
 			return curStream;
 		} catch (error) {
 			return null;
