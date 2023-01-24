@@ -181,6 +181,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						roomId,
 					});
 				});
+				newHostPeer.on('error', err => {
+					console.log(err);
+					newHostPeer.destroy();
+				});
 
 				hostPeers.set(userId, {
 					peer: newHostPeer,
