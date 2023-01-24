@@ -185,6 +185,9 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					console.log(err);
 					newHostPeer.destroy();
 				});
+				newHostPeer.on('connect', () => {
+					console.log(`host connected to ${userId}`);
+				});
 
 				hostPeers.set(userId, {
 					peer: newHostPeer,
@@ -293,6 +296,13 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						userId,
 						roomId: roomCode,
 					});
+				});
+				receivePeer.on('error', err => {
+					console.log(err);
+					receivePeer.destroy();
+				});
+				receivePeer.on('connect', () => {
+					console.log(`client connected to host`);
 				});
 				receivePeer.signal(signal);
 				setReceiving(true);
