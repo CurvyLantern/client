@@ -38,7 +38,7 @@ export const VideoJS = ({
 				player.src(options.sources);
 			}
 		}
-	}, [options, videoRef]);
+	}, [options, videoRef, onReady]);
 
 	// Dispose the Video.js player when the functional component unmounts
 	React.useEffect(() => {
