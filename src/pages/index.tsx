@@ -18,8 +18,33 @@ import { GetServerSideProps } from 'next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Peer from 'simple-peer';
 import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
+import { customAlphabet } from 'nanoid';
 
-import dynamic from 'next/dynamic';
+function dividestring(str: string, K: number) {
+	let N = str.length;
+	let j = 0,
+		i = 0;
+	let result = [];
+	let res = '';
+	while (j < N) {
+		res += str[j];
+		if (res.length == K) {
+			result.push(res);
+			res = '';
+		}
+		j++;
+	}
+
+	if (res != '') {
+		result.push(res);
+	}
+	return result;
+}
+
+const customNano = () => {
+	const pre = customAlphabet('abcdefghijklmnopqrstuvwxyz'.toUpperCase(), 9);
+	return dividestring(pre(), 3).join('-');
+};
 import { VideoJS } from '@/components/VideoJs';
 
 interface IndexPageProps {
@@ -128,7 +153,8 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		return peer;
 	};
 	const createRoomId = (len: number) => {
-		return nanoid(len);
+		// return nanoid(len);
+		return customNano();
 	};
 
 	const handleCancelHost = () => {
@@ -226,7 +252,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	const [isReceiving, setReceiving] = useState(false);
 	const receivePeerRef = useRef<Peer.Instance>();
-	
+
 	const [debug, setDebug] = useState<string[]>([]);
 	const connectToRoom = async () => {
 		try {
@@ -283,7 +309,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						setDebug(prev => [...prev, 'video exists']);
 						myVideoRef.current.srcObject = curStream;
 						myVideoRef.current.onloadedmetadata = () => {
-						setDebug(prev => [...prev, 'video will play now']);
+							setDebug(prev => [...prev, 'video will play now']);
 							myVideoRef.current?.play();
 						};
 					}
