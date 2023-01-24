@@ -14,6 +14,11 @@ export const mine = {
 			credential: 'Gb60MOmhys8swcID',
 		},
 		{
+			urls: 'turn:relay.metered.ca:80?transport=tcp',
+			username: '037a8fc4651c1e8d0318c4ae',
+			credential: 'Gb60MOmhys8swcID',
+		},
+		{
 			urls: 'turn:relay.metered.ca:443?transport=tcp',
 			username: '037a8fc4651c1e8d0318c4ae',
 			credential: 'Gb60MOmhys8swcID',

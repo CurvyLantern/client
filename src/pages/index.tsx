@@ -127,8 +127,11 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			initiator: true,
 			trickle: true,
 			stream: hostStreamRef.current,
+			iceCompleteTimeout: 10000,
 			config: {
 				iceServers: [...mine.iceServers],
+				iceTransportPolicy: 'all',
+				bundlePolicy: 'balanced',
 			},
 		});
 
@@ -252,11 +255,16 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			});
 
 			s.on('signal-from-host', ({ signal }) => {
+				setDebug(prev => [...prev, 'received signal from host']);
 				const receivePeer = new Peer({
 					initiator: false,
 					trickle: true,
+					stream: hostStreamRef.current,
+					iceCompleteTimeout: 10000,
 					config: {
 						iceServers: [...mine.iceServers],
+						iceTransportPolicy: 'all',
+						bundlePolicy: 'balanced',
 					},
 				});
 				receivePeerRef.current = receivePeer;
@@ -322,7 +330,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	return (
 		<main>
-			{JSON.stringify(debug)}
+			<Text align='center'>{JSON.stringify(debug)}</Text>
 			<Container>
 				<Center className='h-screen '>
 					<Grid gutter={'md'} className='w-full'>
