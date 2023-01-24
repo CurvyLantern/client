@@ -85,6 +85,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const [videoPlaying, setVideoPlaying] = useState(false);
 
 	const dumpOptionsInfo = (stream: MediaStream) => {
+		if (process.env.NODE_ENV === 'production') return;
 		const tracks = stream.getTracks();
 
 		if (!tracks) return;
@@ -132,10 +133,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					echoCancellation: false,
 					noiseSuppression: false,
 					//@ts-ignore
-					latency: 100,
+					latency: 150,
 					channelCount: 1,
 					frameRate,
-					sampleRate: 8000,
+					sampleRate: 6000,
 					sampleSize: 8,
 					autoGainControl: false,
 				},
