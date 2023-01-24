@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Peer from 'simple-peer';
 import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
 import { customAlphabet } from 'nanoid';
+import { mine, open } from '@/ICE';
 
 function dividestring(str: string, K: number) {
 	let N = str.length;
@@ -127,26 +128,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			trickle: true,
 			stream: hostStreamRef.current,
 			config: {
-				iceServers: [
-					{
-						urls: 'stun:openrelay.metered.ca:80',
-					},
-					{
-						urls: 'turn:openrelay.metered.ca:80',
-						username: 'openrelayproject',
-						credential: 'openrelayproject',
-					},
-					{
-						urls: 'turn:openrelay.metered.ca:443',
-						username: 'openrelayproject',
-						credential: 'openrelayproject',
-					},
-					{
-						urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-						username: 'openrelayproject',
-						credential: 'openrelayproject',
-					},
-				],
+				iceServers: [...mine.iceServers],
 			},
 		});
 
@@ -274,26 +256,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					initiator: false,
 					trickle: true,
 					config: {
-						iceServers: [
-							{
-								urls: 'stun:openrelay.metered.ca:80',
-							},
-							{
-								urls: 'turn:openrelay.metered.ca:80',
-								username: 'openrelayproject',
-								credential: 'openrelayproject',
-							},
-							{
-								urls: 'turn:openrelay.metered.ca:443',
-								username: 'openrelayproject',
-								credential: 'openrelayproject',
-							},
-							{
-								urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-								username: 'openrelayproject',
-								credential: 'openrelayproject',
-							},
-						],
+						iceServers: [...mine.iceServers],
 					},
 				});
 				receivePeerRef.current = receivePeer;
