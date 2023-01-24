@@ -273,8 +273,10 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					setDebug(prev => [...prev, temp]);
 					hostedStream.current = curStream;
 					if (myVideoRef.current) {
+						setDebug(prev => [...prev, 'video exists']);
 						myVideoRef.current.srcObject = curStream;
 						myVideoRef.current.onloadedmetadata = () => {
+						setDebug(prev => [...prev, 'video will play now']);
 							myVideoRef.current?.play();
 						};
 					}
