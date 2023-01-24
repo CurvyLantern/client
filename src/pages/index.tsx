@@ -16,7 +16,7 @@ import { useFullscreen } from '@mantine/hooks';
 import { getCookie, setCookie } from 'cookies-next';
 import { nanoid } from 'nanoid';
 import { GetServerSideProps } from 'next';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Peer from 'simple-peer';
 import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
 import { customAlphabet } from 'nanoid';
@@ -111,7 +111,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 				}, 200);
 			});
 		},
-		[socket]
+		[socket, userId]
 	);
 	const getStream = async ({ frameRate = 30 }: { frameRate: number }) => {
 		try {
@@ -501,42 +501,6 @@ export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
 	};
 };
 
-// const Temp = () => {
-// 	return (
-// 		<>
-// 			<Title align='center' className='text-white' size={40} order={1}>
-// 				{isSecured}
-// 			</Title>
-// 			<Container size='sm'>
-// 				<AspectRatio ratio={16 / 9}>
-// 					<video ref={myStream} playsInline muted autoPlay controls />
-// 				</AspectRatio>
-// 				<Text> Other people</Text>
-// 				<AspectRatio ratio={16 / 9}>
-// 					<video ref={foreignStream} playsInline muted autoPlay controls />
-// 				</AspectRatio>
-// 				<Text> Canvas people</Text>
-// 				<AspectRatio ratio={16 / 9}>
-// 					<img ref={foreignImg} />
-// 				</AspectRatio>
-// 			</Container>
-// 			<Button onClick={() => handleStart()}>Start Share</Button>
-// 			<Button onClick={() => handleStop()}>Stop Share</Button>
 
-// 			<Container>
-// 				<Paper>
-// 					<TextInput value={chat} onChange={evt => setChat(evt.target.value)} />
-// 					<Button onClick={() => sendText(chat)}></Button>
-// 				</Paper>
-
-// 				<List>
-// 					{list.map((l, idx) => (
-// 						<List.Item key={idx}>{l}</List.Item>
-// 					))}
-// 				</List>
-// 			</Container>
-// 		</>
-// 	);
-// };
 
 export default IndexPage;
