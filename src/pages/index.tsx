@@ -108,7 +108,34 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		if (!window.isSecureContext) return;
 
 		try {
-			const stream = await getStream({ showCursor, frameRate, onInactive: handleCancelHost, systemAudio });
+			const stream = await getStream(
+				{
+					audio: {
+						echoCancellation: false,
+						noiseSuppression: false,
+
+						latency: 150,
+						// channelCount: 1,
+						frameRate,
+						sampleRate: 100,
+						sampleSize: 2,
+						autoGainControl: true,
+						suppressLocalAudioPlayback: true,
+					},
+					video: {
+						cursor: showCursor ? 'always' : 'never',
+						height: 720,
+						aspectRatio: 16 / 9,
+						frameRate,
+						// resizeMode: 'none',
+					},
+					surfaceSwitching: 'include',
+					systemAudio: systemAudio ? 'include' : 'exclude',
+					selfBrowserSurface: 'exclude',
+					restrictOwnAudio: true,
+				},
+				handleCancelHost
+			);
 			console.log(stream, 'stream');
 			if (!stream) throw new Error('no permission given');
 
@@ -318,6 +345,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 								<video
 									style={{
 										display: hasVideo ? 'block' : 'none',
+										objectFit: 'contain',
 									}}
 									ref={myVideoRef}
 									muted
