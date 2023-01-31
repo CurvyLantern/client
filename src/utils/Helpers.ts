@@ -5,48 +5,7 @@ import { customAlphabet } from 'nanoid';
 
 type MaybeSocket = Socket | undefined;
 
-const getStream = async ({
-	frameRate = 30,
-	systemAudio = false,
-	onInactive,
-}: {
-	systemAudio: boolean;
-	onInactive: () => void;
-	frameRate: number;
-}) => {
-	try {
-		const curStream = await window.navigator.mediaDevices.getDisplayMedia({
-			audio: {
-				echoCancellation: true,
-				noiseSuppression: true,
-				//@ts-ignore
-				latency: 150,
-				// channelCount: 1,
-				frameRate,
-				sampleRate: 6000,
-				sampleSize: 8,
-				autoGainControl: false,
-				//@ts-ignore
-				suppressLocalAudioPlayback: true,
-			},
-			video: {
-				height: 720,
-				aspectRatio: 16 / 9,
-				frameRate,
-			},
-			//@ts-ignore
-			surfaceSwitching: 'include',
-			//@ts-ignore
-			systemAudio: systemAudio ? 'include' : 'exclude',
-		});
-		//@ts-ignore
-		curStream.oninactive = onInactive;
-		dumpOptionsInfo(curStream);
-		return curStream;
-	} catch (error) {
-		console.error(error);
-	}
-};
+
 
 const createHostPeer = (stream: MediaStream) => {
 	return new Promise<Peer.Instance>(resolve => {
@@ -111,17 +70,4 @@ const createRoomId = (len: number) => {
 	return customNano();
 };
 
-const dumpOptionsInfo = (stream: MediaStream) => {
-	if (process.env.NODE_ENV === 'production') return;
-	const tracks = stream.getTracks();
-
-	if (!tracks) return;
-	for (let track of tracks) {
-		console.info('Track settings:');
-		console.info(JSON.stringify(track.getSettings(), null, 2));
-		console.info('Track constraints:');
-		console.info(JSON.stringify(track.getConstraints(), null, 2));
-	}
-};
-
-export { getStream, createHostPeer, createRoomId, DestroyPeer, leaveRoom, dumpOptionsInfo };
+export { createHostPeer, createRoomId, DestroyPeer, leaveRoom };

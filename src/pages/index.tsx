@@ -10,6 +10,7 @@ import {
 	Modal,
 	NumberInput,
 	SimpleGrid,
+	Skeleton,
 	Text,
 	TextInput,
 	useMantineTheme,
@@ -21,14 +22,8 @@ import { useCallback, useRef, useState } from 'react';
 import Peer from 'simple-peer';
 import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
 import { VideoJS } from '@/components/VideoJs';
-import {
-	DestroyPeer,
-	createHostPeer,
-	createRoomId,
-	dumpOptionsInfo,
-	getStream,
-	leaveRoom,
-} from '@/utils/Helpers';
+import { DestroyPeer, createHostPeer, createRoomId, leaveRoom } from '@/utils/Helpers';
+import { getStream } from '@/utils/StreamHelpers';
 
 interface IndexPageProps {
 	userId: string;
@@ -38,6 +33,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const [roomCode, setRoomCode] = useState('');
 	const [frameRate, setFrameRate] = useState(0);
 	const [systemAudio, setSystemAudio] = useState(false);
+	const [showCursor, setShowCursor] = useState(false);
 	const [modalState, setModalState] = useState<{
 		open: boolean;
 		mode: 'host' | 'client' | undefined;
@@ -53,7 +49,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 
 	//refs
 	const hostedStream = useRef<MediaStream>();
-	const myVideoRef = useRef<HTMLVideoElement>();
+	const myVideoRef = useRef<HTMLVideoElement>(null);
 	const hostStreamRef = useRef<MediaStream>();
 	const [hostPeers, setHostPeers] = useState<
 		Map<
@@ -112,7 +108,8 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		if (!window.isSecureContext) return;
 
 		try {
-			const stream = await getStream({ frameRate, onInactive: handleCancelHost, systemAudio });
+			const stream = await getStream({ showCursor, frameRate, onInactive: handleCancelHost, systemAudio });
+			console.log(stream, 'stream');
 			if (!stream) throw new Error('no permission given');
 
 			hostStreamRef.current = stream;
@@ -302,7 +299,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 					<Grid gutter={'md'} className='w-full'>
 						<Grid.Col span={12}>
 							<AspectRatio ratio={16 / 9}>
-								<VideoJS
+								{/* <VideoJS
 									visible={hasVideo}
 									responsive
 									playsinline
@@ -312,14 +309,20 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 										const tech = player.tech();
 										const el = tech.el();
 										myVideoRef.current = el as HTMLVideoElement;
-									}}></VideoJS>
+										player.on('pause', () => {
+											console.log(myVideoRef.current);
+										});
+									}}></VideoJS> */}
 
-								{/* <video
+								<Skeleton visible={!hasVideo} animate={true} />
+								<video
 									style={{
 										display: hasVideo ? 'block' : 'none',
 									}}
 									ref={myVideoRef}
-									playsInline></video> */}
+									muted
+									controls
+									playsInline></video>
 							</AspectRatio>
 						</Grid.Col>
 						<Grid.Col>
@@ -423,6 +426,11 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 								label='System Audio'
 								checked={systemAudio}
 								onChange={event => setSystemAudio(event.currentTarget.checked)}
+							/>
+							<Checkbox
+								label='Cursor'
+								checked={showCursor}
+								onChange={event => setShowCursor(event.currentTarget.checked)}
 							/>
 							<Button variant='outline' onClick={() => handleHost()}>
 								Proceed
