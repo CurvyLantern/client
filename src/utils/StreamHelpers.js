@@ -23,10 +23,6 @@ const getStream = async (options, onInactive) => {
 		const curStream = await window.navigator.mediaDevices.getDisplayMedia(options);
 		curStream.oninactive = onInactive;
 
-		// const videoTrack = await curStream.getVideoTracks()[0];
-		// const audioTrack = await curStream.getAudioTracks()[0];
-		// console.log({ videoTrack, audioTrack });
-
 		dumpOptionsInfo(curStream);
 		return curStream;
 	} catch (error) {
