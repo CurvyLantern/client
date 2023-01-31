@@ -3,11 +3,13 @@ import {
 	AspectRatio,
 	Button,
 	Center,
+	Checkbox,
 	Container,
 	Flex,
 	Grid,
 	Modal,
 	NumberInput,
+	SimpleGrid,
 	Text,
 	TextInput,
 	useMantineTheme,
@@ -34,7 +36,8 @@ interface IndexPageProps {
 
 const IndexPage = ({ userId }: IndexPageProps) => {
 	const [roomCode, setRoomCode] = useState('');
-	const [frameRate, setFrameRate] = useState<number>(0);
+	const [frameRate, setFrameRate] = useState(0);
+	const [systemAudio, setSystemAudio] = useState(false);
 	const [modalState, setModalState] = useState<{
 		open: boolean;
 		mode: 'host' | 'client' | undefined;
@@ -109,7 +112,7 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		if (!window.isSecureContext) return;
 
 		try {
-			const stream = await getStream({ frameRate, onInactive: handleCancelHost });
+			const stream = await getStream({ frameRate, onInactive: handleCancelHost, systemAudio });
 			if (!stream) throw new Error('no permission given');
 
 			hostStreamRef.current = stream;
@@ -406,13 +409,20 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						</>
 					) : modalState.mode === 'host' ? (
 						<>
-							<Button variant='outline' onClick={() => setFrameRate(30)}>
-								30 fps
-							</Button>
-							<Button variant='outline' onClick={() => setFrameRate(60)}>
-								60 fps
-							</Button>
-							<NumberInput value={frameRate} onChange={evt => setFrameRate(Number(evt))} />
+							<SimpleGrid cols={3}>
+								<NumberInput value={frameRate} onChange={evt => setFrameRate(Number(evt))} />
+								<Button variant='outline' onClick={() => setFrameRate(30)}>
+									30 fps
+								</Button>
+								<Button variant='outline' onClick={() => setFrameRate(60)}>
+									60 fps
+								</Button>
+							</SimpleGrid>
+							<Checkbox
+								label='System Audio'
+								checked={systemAudio}
+								onChange={event => setSystemAudio(event.currentTarget.checked)}
+							/>
 							<Button variant='outline' onClick={() => handleHost()}>
 								Proceed
 							</Button>

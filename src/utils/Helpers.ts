@@ -5,7 +5,15 @@ import { customAlphabet } from 'nanoid';
 
 type MaybeSocket = Socket | undefined;
 
-const getStream = async ({ frameRate = 30, onInactive }: { onInactive: () => void; frameRate: number }) => {
+const getStream = async ({
+	frameRate = 30,
+	systemAudio = false,
+	onInactive,
+}: {
+	systemAudio: boolean;
+	onInactive: () => void;
+	frameRate: number;
+}) => {
 	try {
 		const curStream = await window.navigator.mediaDevices.getDisplayMedia({
 			audio: {
@@ -29,7 +37,7 @@ const getStream = async ({ frameRate = 30, onInactive }: { onInactive: () => voi
 			//@ts-ignore
 			surfaceSwitching: 'include',
 			//@ts-ignore
-			systemAudio: 'include',
+			systemAudio: systemAudio ? 'include' : 'exclude',
 		});
 		//@ts-ignore
 		curStream.oninactive = onInactive;
