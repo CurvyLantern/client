@@ -1,3 +1,4 @@
+import { mine } from '@/ICE';
 import {
 	AspectRatio,
 	Button,
@@ -7,47 +8,25 @@ import {
 	Grid,
 	Modal,
 	NumberInput,
-	Skeleton,
 	Text,
 	TextInput,
 	useMantineTheme,
 } from '@mantine/core';
-import { useFullscreen } from '@mantine/hooks';
 import { getCookie, setCookie } from 'cookies-next';
 import { nanoid } from 'nanoid';
 import { GetServerSideProps } from 'next';
 import { useCallback, useRef, useState } from 'react';
 import Peer from 'simple-peer';
 import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
-import { customAlphabet } from 'nanoid';
-import { mine, open } from '@/ICE';
-
-function dividestring(str: string, K: number) {
-	let N = str.length;
-	let j = 0,
-		i = 0;
-	let result = [];
-	let res = '';
-	while (j < N) {
-		res += str[j];
-		if (res.length == K) {
-			result.push(res);
-			res = '';
-		}
-		j++;
-	}
-
-	if (res != '') {
-		result.push(res);
-	}
-	return result;
-}
-
-const customNano = () => {
-	const pre = customAlphabet('abcdefghijklmnopqrstuvwxyz'.toUpperCase(), 9);
-	return dividestring(pre(), 3).join('-');
-};
 import { VideoJS } from '@/components/VideoJs';
+import {
+	DestroyPeer,
+	createHostPeer,
+	createRoomId,
+	dumpOptionsInfo,
+	getStream,
+	leaveRoom,
+} from '@/utils/Helpers';
 
 interface IndexPageProps {
 	userId: string;
@@ -66,13 +45,13 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const [isHosting, setIsHosting] = useState(false);
 	const [roomId, setRoomId] = useState('');
 	const theme = useMantineTheme();
-	const hostedStream = useRef<MediaStream>();
 	const [hasVideo, setHasVideo] = useState(false);
+	const [socket, setSocket] = useState<Socket>();
 
 	//refs
+	const hostedStream = useRef<MediaStream>();
 	const myVideoRef = useRef<HTMLVideoElement>();
 	const hostStreamRef = useRef<MediaStream>();
-	const [socket, setSocket] = useState<Socket>();
 	const [hostPeers, setHostPeers] = useState<
 		Map<
 			string,
@@ -84,26 +63,11 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	>(new Map());
 	const [videoPlaying, setVideoPlaying] = useState(false);
 
-	const dumpOptionsInfo = (stream: MediaStream) => {
-		if (process.env.NODE_ENV === 'production') return;
-		const tracks = stream.getTracks();
-
-		if (!tracks) return;
-		for (let track of tracks) {
-			console.info('Track settings:');
-			console.info(JSON.stringify(track.getSettings(), null, 2));
-			console.info('Track constraints:');
-			console.info(JSON.stringify(track.getConstraints(), null, 2));
-		}
-	};
-
 	const initSocket = useCallback(
-		({ auth, ...opts }: Partial<ManagerOptions & SocketOptions>): Promise<Socket> => {
-			return new Promise((resolve, reject) => {
-				if (socket) {
-					resolve(socket);
-					return;
-				}
+		({ auth, ...opts }: Partial<ManagerOptions & SocketOptions>) => {
+			if (socket) {
+				return socket;
+			} else {
 				const s = io(
 					process.env.NODE_ENV === 'development'
 						? 'http://localhost:8000'
@@ -112,74 +76,21 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						...opts,
 						transports: ['websocket'],
 						auth: {
-							userId,
 							...auth,
+							userId,
 						},
 						autoConnect: false,
 					}
 				);
 				setSocket(s);
-				setTimeout(() => {
-					resolve(s);
-				}, 200);
-			});
+				return s;
+			}
 		},
 		[socket, userId]
 	);
-	const getStream = async ({ frameRate = 30 }: { frameRate: number }) => {
-		try {
-			const curStream = await window.navigator.mediaDevices.getDisplayMedia({
-				audio: {
-					echoCancellation: false,
-					noiseSuppression: false,
-					//@ts-ignore
-					latency: 150,
-					channelCount: 1,
-					frameRate,
-					sampleRate: 6000,
-					sampleSize: 8,
-					autoGainControl: false,
-				},
-				video: {
-					height: 720,
-					aspectRatio: 16 / 9,
-					frameRate,
-				},
-			});
-			//@ts-ignore
-			curStream.oninactive = handleCancelHost;
-			hostedStream.current = curStream;
-
-			dumpOptionsInfo(curStream);
-
-			return curStream;
-		} catch (error) {
-			return null;
-		}
-	};
-
-	const createHostPeer = () => {
-		const peer = new Peer({
-			initiator: true,
-			trickle: true,
-			stream: hostStreamRef.current,
-			iceCompleteTimeout: 10000,
-			config: {
-				iceServers: [...mine.iceServers],
-				iceTransportPolicy: 'all',
-				bundlePolicy: 'balanced',
-			},
-		});
-
-		return peer;
-	};
-	const createRoomId = (len: number) => {
-		// return nanoid(len);
-		return customNano();
-	};
 
 	const handleCancelHost = () => {
-		hostedStream.current?.getTracks().forEach(track => {
+		hostStreamRef.current?.getTracks().forEach(track => {
 			track.stop();
 		});
 		if (myVideoRef.current) {
@@ -198,11 +109,11 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		if (!window.isSecureContext) return;
 
 		try {
-			const stream = await getStream({ frameRate });
+			const stream = await getStream({ frameRate, onInactive: handleCancelHost });
 			if (!stream) throw new Error('no permission given');
 
 			hostStreamRef.current = stream;
-			const sock = await initSocket({
+			const sock = initSocket({
 				auth: {
 					isHosting: 'yes',
 				},
@@ -223,8 +134,8 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 			sock.emit('create-room', roomId);
 
 			// when user joins my room
-			sock.on('user-joined', ({ userId, socketId, roomId }) => {
-				const newHostPeer = createHostPeer();
+			sock.on('user-joined', async ({ userId, socketId, roomId }) => {
+				const newHostPeer = await createHostPeer(stream);
 				newHostPeer.on('signal', data => {
 					sock.emit('client:connect-from-host', {
 						userId,
@@ -282,9 +193,9 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 	const receivePeerRef = useRef<Peer.Instance>();
 
 	const [debug, setDebug] = useState<string[]>([]);
-	const connectToRoom = async () => {
+	const connectToRoom = () => {
 		try {
-			const s = await initSocket({
+			const s = initSocket({
 				auth: {
 					isHosting: 'no',
 				},
@@ -304,7 +215,6 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 						initiator: false,
 						trickle: true,
 						stream: hostStreamRef.current,
-						iceCompleteTimeout: 10000,
 						config: {
 							iceServers: [...mine.iceServers],
 							iceTransportPolicy: 'all',
@@ -363,17 +273,19 @@ const IndexPage = ({ userId }: IndexPageProps) => {
 		}
 	};
 
-	const handleStopWatching = () => {
-		if (socket) {
-			socket.emit('leave-room', { roomId, userId });
-			socket.disconnect();
-		}
-		if (receivePeerRef.current) {
-			receivePeerRef.current.destroy();
-		}
+	const handleStopWatching = async () => {
+		handleCancelHost();
+		leaveRoom({
+			roomId,
+			socket,
+			userId,
+		});
+		DestroyPeer(receivePeerRef.current);
+
 		if (myVideoRef.current) {
 			myVideoRef.current.srcObject = null;
 		}
+
 		setReceiving(false);
 		setHasVideo(false);
 	};
@@ -528,7 +440,5 @@ export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
 		},
 	};
 };
-
-
 
 export default IndexPage;
