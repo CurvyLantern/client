@@ -18,6 +18,7 @@ const getStream = async ({ frameRate = 30, onInactive }: { onInactive: () => voi
 				sampleRate: 6000,
 				sampleSize: 8,
 				autoGainControl: false,
+				//@ts-ignore
 				suppressLocalAudioPlayback: true,
 			},
 			video: {
@@ -25,7 +26,9 @@ const getStream = async ({ frameRate = 30, onInactive }: { onInactive: () => voi
 				aspectRatio: 16 / 9,
 				frameRate,
 			},
+			//@ts-ignore
 			surfaceSwitching: 'include',
+			//@ts-ignore
 			systemAudio: 'include',
 		});
 		//@ts-ignore
