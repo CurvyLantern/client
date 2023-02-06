@@ -114,7 +114,6 @@ const IndexPage = () => {
       const roomSnapshot = (await getDocs(dbRef)).docs.map(
         (doc) => doc.data() as { code: string }
       );
-      console.log({ roomSnapshot });
       const roomId = await createRoomId(9, roomSnapshot);
 
       updateNotification({

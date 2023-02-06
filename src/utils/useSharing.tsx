@@ -36,7 +36,6 @@ const useSharing = (roomId: string) => {
   const mergeUserData = useMainStore((state) => state.mergeUserData);
   const clearUser = useMainStore((state) => state.clearUser);
   const clearAllUser = useMainStore((state) => state.clearAllUser);
-
   const destroyPeerFromMap = (id: string, msg?: string) => {
     let peer = peerMap.current.get(id)?.peer;
     peer?.removeAllListeners();

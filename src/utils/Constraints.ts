@@ -2,8 +2,8 @@ export const audioConstraints = {
   echoCancellation: true,
   noiseSuppression: true,
   channelCount: 1,
-  sampleRate: 100,
-  sampleSize: 2,
+  sampleRate: 3000,
+  sampleSize: 8,
   autoGainControl: true,
   suppressLocalAudioPlayback: true,
 };

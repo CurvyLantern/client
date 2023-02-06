@@ -1,15 +1,13 @@
-import '@/styles/globals.css'
+import { Demo } from "@/components/ShowUserId";
+import '@/styles/globals.css';
+import { MantineProvider } from '@mantine/core';
+import { NotificationsProvider } from "@mantine/notifications";
 import { AppProps } from 'next/app';
 import Head from 'next/head';
-import { MantineProvider } from '@mantine/core';
-import { SocketProvider } from "@/contexts/SocketContext";
-import { NotificationsProvider } from "@mantine/notifications";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
-import { Demo } from "@/components/ShowUserId";
-import { UserDataProvider } from "@/contexts/UserDataContext";
+import { useEffect } from "react";
 
 export default function App(props: AppProps) {
   const { Component, pageProps } = props;
