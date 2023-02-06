@@ -1,0 +1,399 @@
+import { mine } from '@/ICE';
+import {
+	AspectRatio,
+	Button,
+	Center,
+	Checkbox,
+	Container,
+	Flex,
+	Grid,
+	Modal,
+	NumberInput,
+	SimpleGrid,
+	Skeleton,
+	Text,
+	TextInput,
+	useMantineTheme,
+} from '@mantine/core';
+import { getCookie, setCookie } from 'cookies-next';
+import { nanoid } from 'nanoid';
+import { GetServerSideProps } from 'next';
+import { useCallback, useRef, useState } from 'react';
+import Peer from 'simple-peer';
+import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
+import { VideoJS } from '@/components/VideoJs';
+import { DestroyPeer, createHostPeer, leaveRoom } from '@/utils/Helpers';
+import { getStream } from '@/utils/StreamHelpers';
+import { useRouter } from 'next/router';
+import { roomIdFetcher } from '@/utils/Fetchers';
+
+interface IndexPageProps {
+	userId: string;
+}
+
+const IndexPage = ({ userId }: IndexPageProps) => {
+	const [roomCode, setRoomCode] = useState('');
+	const [frameRate, setFrameRate] = useState(0);
+	const [systemAudio, setSystemAudio] = useState(false);
+	const [showCursor, setShowCursor] = useState(false);
+	const [modalState, setModalState] = useState<{
+		open: boolean;
+		mode: 'host' | 'client' | undefined;
+	}>({
+		open: false,
+		mode: undefined,
+	});
+	const [isHosting, setIsHosting] = useState(false);
+	const [roomId, setRoomId] = useState('');
+	const theme = useMantineTheme();
+	const [hasVideo, setHasVideo] = useState(false);
+	const [socket, setSocket] = useState<Socket>();
+
+	//refs
+	const hostedStream = useRef<MediaStream>();
+	const myVideoRef = useRef<HTMLVideoElement>(null);
+	const hostStreamRef = useRef<MediaStream>();
+	const [hostPeers, setHostPeers] = useState<
+		Map<
+			string,
+			{
+				peer: Peer.Instance;
+				used: boolean;
+			}
+		>
+	>(new Map());
+	const [videoPlaying, setVideoPlaying] = useState(false);
+
+	const initSocket = useCallback(
+		({ auth, ...opts }: Partial<ManagerOptions & SocketOptions>) => {
+			if (socket) {
+				return socket;
+			} else {
+				const s = io(
+					process.env.NODE_ENV === 'development'
+						? 'http://localhost:8000'
+						: 'https://rtc-backend.onrender.com/',
+					{
+						...opts,
+						transports: ['websocket'],
+						auth: {
+							...auth,
+							userId,
+						},
+						autoConnect: false,
+					}
+				);
+				setSocket(s);
+				return s;
+			}
+		},
+		[socket, userId]
+	);
+
+	const handleCancelHost = () => {
+		hostStreamRef.current?.getTracks().forEach(track => {
+			track.stop();
+		});
+		if (myVideoRef.current) {
+			myVideoRef.current.srcObject = null;
+		}
+		socket?.emit('host:leave-room', { roomId });
+		socket?.disconnect();
+		setIsHosting(false);
+	};
+
+	const getDefinedStream = async () => {
+		setModalState({
+			open: false,
+			mode: undefined,
+		});
+		if (!window.isSecureContext || !myVideoRef.current) return;
+
+		try {
+			const audioConstraints = {
+				echoCancellation: false,
+				noiseSuppression: false,
+
+				latency: 150,
+				// channelCount: 1,
+				frameRate,
+				sampleRate: 100,
+				sampleSize: 2,
+				autoGainControl: true,
+				suppressLocalAudioPlayback: true,
+			};
+			const videoConstraints = {
+				cursor: showCursor ? 'always' : 'never',
+				height: 720,
+				aspectRatio: 16 / 9,
+				frameRate,
+				// resizeMode: 'none',
+			};
+			// get the stream
+			const stream = await getStream(
+				{
+					audio: audioConstraints,
+					video: videoConstraints,
+					surfaceSwitching: 'include',
+					systemAudio: systemAudio ? 'include' : 'exclude',
+					selfBrowserSurface: 'exclude',
+					restrictOwnAudio: true,
+				},
+				handleCancelHost
+			);
+			if (!stream) throw new Error('no permission given to stream');
+
+			// store stream for later use
+			hostStreamRef.current = stream;
+
+			// show it to video
+			myVideoRef.current.srcObject = stream;
+			setHasVideo(true);
+
+			// get room Code from api
+			const roomId = await roomIdFetcher();
+
+			const sock = initSocket({
+				auth: {
+					isHosting: 'yes',
+				},
+			});
+
+			setRoomId(roomId);
+			sock.connect();
+			sock.emit('create-room', roomId);
+
+			// when user joins my room
+			sock.on('user-joined', async ({ userId, socketId, roomId }) => {
+				const newHostPeer = await createHostPeer(stream);
+				newHostPeer.on('signal', data => {
+					sock.emit('client:connect-from-host', {
+						userId,
+						signal: data,
+						roomId,
+					});
+				});
+				newHostPeer.on('error', err => {
+					console.log(err);
+					newHostPeer.destroy();
+				});
+				newHostPeer.on('connect', () => {
+					console.log(`host connected to ${userId}`);
+				});
+
+				hostPeers.set(userId, {
+					peer: newHostPeer,
+					used: true,
+				});
+				setHostPeers(new Map(hostPeers));
+			});
+
+			// when client tries to connect with me
+			sock.on('host:on-client-connect', ({ signal, userId }) => {
+				if (hostPeers.has(userId)) {
+					const value = hostPeers.get(userId)!;
+
+					value.peer.signal(signal);
+				}
+			});
+
+			//when someone leaves
+			sock.on('user-left', ({ socketId, userId }) => {
+				if (hostPeers.has(userId)) {
+					const value = hostPeers.get(userId);
+					value?.peer.destroy();
+					hostPeers.delete(userId);
+
+					setHostPeers(new Map(hostPeers));
+				}
+			});
+
+			setIsHosting(true);
+		} catch (error) {}
+	};
+
+	const [isReceiving, setReceiving] = useState(false);
+	const receivePeerRef = useRef<Peer.Instance>();
+
+	const router = useRouter();
+	const [debug, setDebug] = useState<string[]>([]);
+	const handleJoinRoom = () => {
+		if (roomCode) {
+			setRoomCode('');
+			setModalState({
+				open: false,
+				mode: undefined,
+			});
+
+			router.push(`/${roomCode}`);
+		}
+	};
+
+	return (
+		<main>
+			{process.env.NODE_ENV === 'development' ? <Text align='center'>{JSON.stringify(debug)}</Text> : null}
+			<Container>
+				<Center className='h-screen '>
+					<Grid gutter={'md'} className='w-full'>
+						<Grid.Col span={12}>
+							<AspectRatio ratio={16 / 9}>
+								{/* <VideoJS
+									visible={hasVideo}
+									responsive
+									playsinline
+									fill
+									controls
+									onReady={player => {
+										const tech = player.tech();
+										const el = tech.el();
+										myVideoRef.current = el as HTMLVideoElement;
+										player.on('pause', () => {
+											console.log(myVideoRef.current);
+										});
+									}}></VideoJS> */}
+
+								<Skeleton visible={!hasVideo} animate={true} />
+								<video
+									style={{
+										display: hasVideo ? 'block' : 'none',
+										objectFit: 'contain',
+									}}
+									ref={myVideoRef}
+									muted
+									autoPlay
+									playsInline></video>
+							</AspectRatio>
+						</Grid.Col>
+						<Grid.Col>
+							<Text align='center'>room id : {roomId ? roomId : 'No room id'}</Text>
+							{/* <Text align='center'>user id : {userId}</Text> */}
+						</Grid.Col>
+
+						{isHosting ? (
+							<>
+								<Grid.Col span={12}>
+									<Button
+										fullWidth
+										onClick={() => {
+											handleCancelHost();
+										}}>
+										Cancel Host
+									</Button>
+								</Grid.Col>
+							</>
+						) : (
+							<>
+								<Grid.Col span={6}>
+									<Button
+										fullWidth
+										onClick={() => {
+											setModalState({
+												open: true,
+												mode: 'host',
+											});
+										}}>
+										Host
+									</Button>
+								</Grid.Col>
+								<Grid.Col span={6}>
+									<Button
+										fullWidth
+										onClick={() => {
+											setModalState({
+												open: true,
+												mode: 'host',
+											});
+										}}>
+										{' '}
+										Join Room{' '}
+									</Button>
+								</Grid.Col>
+							</>
+						)}
+					</Grid>
+				</Center>
+			</Container>
+			<Modal
+				trapFocus
+				centered
+				opened={modalState.open}
+				onClose={() =>
+					setModalState({
+						open: false,
+						mode: undefined,
+					})
+				}
+				overlayOpacity={0.7}
+				overlayBlur={3}
+				overlayColor={theme.colorScheme === 'dark' ? theme.colors.dark[9] : theme.colors.gray[2]}>
+				<Flex direction={'column'} rowGap={30}>
+					{modalState.mode === 'client' ? (
+						<>
+							<TextInput
+								styles={theme => ({
+									input: {
+										textAlign: 'center',
+									},
+								})}
+								size='xl'
+								placeholder='Enter room code'
+								className='text-center'
+								value={roomCode}
+								onChange={evt => setRoomCode(evt.currentTarget.value)}
+							/>
+							<Button variant='outline' onClick={() => handleJoinRoom()}>
+								Proceed
+							</Button>
+						</>
+					) : modalState.mode === 'host' ? (
+						<>
+							<SimpleGrid cols={3}>
+								<NumberInput value={frameRate} onChange={evt => setFrameRate(Number(evt))} />
+								<Button variant='outline' onClick={() => setFrameRate(30)}>
+									30 fps
+								</Button>
+								<Button variant='outline' onClick={() => setFrameRate(60)}>
+									60 fps
+								</Button>
+							</SimpleGrid>
+							<Checkbox
+								label='System Audio'
+								checked={systemAudio}
+								onChange={event => setSystemAudio(event.currentTarget.checked)}
+							/>
+							<Checkbox
+								label='Cursor'
+								checked={showCursor}
+								onChange={event => setShowCursor(event.currentTarget.checked)}
+							/>
+							<Button variant='outline' onClick={() => getDefinedStream()}>
+								Proceed
+							</Button>
+						</>
+					) : null}
+				</Flex>
+			</Modal>
+		</main>
+	);
+};
+
+export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
+	let userId = undefined;
+	const useridInCookie = getCookie('user-id', { req, res, httpOnly: true });
+	if (useridInCookie) {
+		userId = useridInCookie;
+	} else {
+		userId = nanoid(8);
+		setCookie('user-id', { req, res }, { httpOnly: true, maxAge: 60 * 60 * 24 });
+	}
+
+	return {
+		props: {
+			userId,
+		},
+	};
+};
+
+export default IndexPage;
+
+

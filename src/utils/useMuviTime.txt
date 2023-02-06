@@ -1,0 +1,171 @@
+import { SocketContext } from "@/contexts/SocketContext";
+import { createPeer, initSocket } from "@/utils/Helpers";
+import { updateNotification, showNotification } from "@mantine/notifications";
+import { useState, useEffect, useContext, useRef, useCallback } from "react";
+import SimplePeer from "simple-peer";
+
+const useMuviTime = ({ roomId }: { roomId: string }) => {
+  const { socket } = useContext(SocketContext);
+  const [peerMap, setPeerMap] = useState<Map<string, SimplePeer.Instance>>(
+    new Map()
+  );
+
+  const [streamMap, setStreamMap] = useState<Map<string, MediaStream | null>>(
+    new Map()
+  );
+  const totalStreamRef = useRef<MediaStream>();
+  const destroyPeer = useCallback((peer: any, id: string) => {
+    console.log("closing peer");
+    peer.destroy();
+    setPeerMap((prev) => {
+      prev.delete(id);
+      return new Map(prev);
+    });
+  }, []);
+  useEffect(() => {
+    console.log("muvitime onloading");
+
+    // if (!totalStream) {
+    //   console.log("i am getting logged");
+    //   totalStreamRef.current = stream;
+    // }
+    let stream = new MediaStream();
+    totalStreamRef.current = stream;
+  }, []);
+
+  useEffect(() => {
+    if (!totalStreamRef.current || !socket) {
+      return;
+    }
+
+    if (!socket.active) {
+      socket.connect();
+    }
+    console.log(socket);
+    // intervalId.current = window.setInterval(() => {
+    //   console.log(socket);
+    //   socket.volatile.emit("routine-report", { roomId });
+    // }, 1000 * 2);
+    // socket.on(
+    //   "receive-report",
+    //   ({ allUserId }: { allUserId: string[] }) => {
+    //     peerMap.forEach((peer, user) => {
+    //       if (!allUserId.includes(user)) {
+    //         peerMap.get(user)?.destroy();
+    //         peerMap.delete(user);
+    //       }
+    //     });
+
+    //     setPeerMap(new Map(peerMap));
+    //   }
+    // );
+    socket.on("on-final-signal", ({ signal, from }) => {
+      setPeerMap((prev) => {
+        prev.get(from)?.signal(signal);
+        return prev;
+      });
+      console.log(peerMap, "on-final-signal");
+    });
+    socket.on("friend-logged-out", ({ who }) => {
+      setPeerMap((prev) => {
+        prev.get(who)?.destroy();
+        prev.delete(who);
+        return new Map(prev);
+      });
+    });
+    socket.on("on-req-to-connect", async ({ from, signal }) => {
+      console.log("on-req-to-connect");
+
+      const peer = await createPeer(false, totalStreamRef.current);
+      if (peer) {
+        peer.signal(signal);
+        peer.on("stream", (stream) => {
+          setStreamMap((prev) => new Map(prev.set(from, stream)));
+        });
+        peer.on("signal", (data) => {
+          socket.emit("complete-connection", { signal: data, to: from });
+        });
+        peer.on("close", () => {
+          destroyPeer(peer, from);
+        });
+        peer.on("error", () => {
+          destroyPeer(peer, from);
+        });
+        setPeerMap((prev) => new Map(prev.set(from, peer)));
+      }
+    });
+    socket.on("friend-joined-room", async ({ from, sockId }) => {
+      console.log("friend-joined-room", totalStreamRef.current);
+      const peer = await createPeer(true, totalStreamRef.current);
+
+      if (peer) {
+        peer.on("connect", () => {
+          console.log("new friend joined");
+        });
+
+        peer.on("stream", (stream) => {
+          console.log("streaming 1");
+          setStreamMap((prev) => new Map(prev.set(from, stream)));
+        });
+        peer.on("close", () => {
+          destroyPeer(peer, from);
+        });
+        peer.on("error", () => {
+          destroyPeer(peer, from);
+        });
+
+        peer.on("signal", (data) => {
+          socket.emit("connect-to-friend", {
+            friendSockId: sockId,
+            from,
+            signal: data,
+          });
+        });
+
+        setPeerMap((prev) => new Map(prev.set(from, peer)));
+      }
+    });
+
+    socket.on("joined-room", (roomId) => {
+      console.log("why am I not getting triggered");
+      updateNotification({
+        id: "room-notification",
+        message: "",
+        title: "Joined room",
+        autoClose: 5000,
+        color: "blue",
+        disallowClose: true,
+      });
+    });
+
+    socket.emit("join-room", roomId);
+    showNotification({
+      id: "room-notification",
+      message: "",
+      title: "Joining Room",
+      autoClose: false,
+      disallowClose: true,
+      loading: true,
+    });
+
+    return () => {
+      if (socket) {
+        socket.emit("logging-out", { roomId });
+        if (socket.active) {
+          // socket.disconnect();
+        }
+      }
+      if (peerMap.size > 0) {
+        peerMap.forEach((peer) => {
+          peer.destroy();
+        });
+        peerMap.clear();
+        // @ts-ignore
+        setPeerMap((prev) => new Map());
+      }
+    };
+  }, [socket, destroyPeer]);
+  // [socket, destroyPeer]
+  return [socket, peerMap, totalStreamRef, streamMap] as const;
+};
+export { useMuviTime };

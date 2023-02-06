@@ -1,491 +1,246 @@
-import { mine } from '@/ICE';
 import {
-	AspectRatio,
-	Button,
-	Center,
-	Checkbox,
-	Container,
-	Flex,
-	Grid,
-	Modal,
-	NumberInput,
-	SimpleGrid,
-	Skeleton,
-	Text,
-	TextInput,
-	useMantineTheme,
-} from '@mantine/core';
-import { getCookie, setCookie } from 'cookies-next';
-import { nanoid } from 'nanoid';
-import { GetServerSideProps } from 'next';
-import { useCallback, useRef, useState } from 'react';
-import Peer from 'simple-peer';
-import { ManagerOptions, Socket, SocketOptions, io } from 'socket.io-client';
-import { VideoJS } from '@/components/VideoJs';
-import { DestroyPeer, createHostPeer, createRoomId, leaveRoom } from '@/utils/Helpers';
-import { getStream } from '@/utils/StreamHelpers';
+  createStyles,
+  Container,
+  Text,
+  Button,
+  Group,
+  Modal,
+  useMantineTheme,
+  Flex,
+  TextInput,
+} from "@mantine/core";
+import { app, database } from "libs/database/firebase";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  Timestamp,
+} from "firebase/firestore";
+import { useState } from "react";
+import { createRoomId } from "@/utils/Helpers";
+import { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
+import { showNotification, updateNotification } from "@mantine/notifications";
 
-interface IndexPageProps {
-	userId: string;
-}
+const BREAKPOINT = "@media (max-width: 755px)";
 
-const IndexPage = ({ userId }: IndexPageProps) => {
-	const [roomCode, setRoomCode] = useState('');
-	const [frameRate, setFrameRate] = useState(0);
-	const [systemAudio, setSystemAudio] = useState(false);
-	const [showCursor, setShowCursor] = useState(false);
-	const [modalState, setModalState] = useState<{
-		open: boolean;
-		mode: 'host' | 'client' | undefined;
-	}>({
-		open: false,
-		mode: undefined,
-	});
-	const [isHosting, setIsHosting] = useState(false);
-	const [roomId, setRoomId] = useState('');
-	const theme = useMantineTheme();
-	const [hasVideo, setHasVideo] = useState(false);
-	const [socket, setSocket] = useState<Socket>();
+const useStyles = createStyles((theme) => ({
+  wrapper: {
+    position: "relative",
+    height: "100vh",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+    backgroundColor:
+      theme.colorScheme === "dark" ? theme.colors.dark[8] : theme.white,
+  },
 
-	//refs
-	const hostedStream = useRef<MediaStream>();
-	const myVideoRef = useRef<HTMLVideoElement>(null);
-	const hostStreamRef = useRef<MediaStream>();
-	const [hostPeers, setHostPeers] = useState<
-		Map<
-			string,
-			{
-				peer: Peer.Instance;
-				used: boolean;
-			}
-		>
-	>(new Map());
-	const [videoPlaying, setVideoPlaying] = useState(false);
+  inner: {
+    position: "relative",
+    paddingTop: 200,
+    paddingBottom: 120,
 
-	const initSocket = useCallback(
-		({ auth, ...opts }: Partial<ManagerOptions & SocketOptions>) => {
-			if (socket) {
-				return socket;
-			} else {
-				const s = io(
-					process.env.NODE_ENV === 'development'
-						? 'http://localhost:8000'
-						: 'https://rtc-backend.onrender.com/',
-					{
-						...opts,
-						transports: ['websocket'],
-						auth: {
-							...auth,
-							userId,
-						},
-						autoConnect: false,
-					}
-				);
-				setSocket(s);
-				return s;
-			}
-		},
-		[socket, userId]
-	);
+    [BREAKPOINT]: {
+      paddingBottom: 80,
+      paddingTop: 80,
+    },
+  },
 
-	const handleCancelHost = () => {
-		hostStreamRef.current?.getTracks().forEach(track => {
-			track.stop();
-		});
-		if (myVideoRef.current) {
-			myVideoRef.current.srcObject = null;
-		}
-		socket?.emit('host:leave-room', { roomId });
-		socket?.disconnect();
-		setIsHosting(false);
-	};
+  title: {
+    fontFamily: `Greycliff CF, ${theme.fontFamily}`,
+    fontSize: 62,
+    fontWeight: 900,
+    lineHeight: 1.1,
+    margin: 0,
+    padding: 0,
+    color: theme.colorScheme === "dark" ? theme.white : theme.black,
 
-	const handleHost = async () => {
-		setModalState({
-			open: false,
-			mode: undefined,
-		});
-		if (!window.isSecureContext) return;
+    [BREAKPOINT]: {
+      fontSize: 42,
+      lineHeight: 1.2,
+    },
+  },
 
-		try {
-			const stream = await getStream(
-				{
-					audio: {
-						echoCancellation: false,
-						noiseSuppression: false,
+  description: {
+    marginTop: theme.spacing.xl,
+    fontSize: 24,
 
-						latency: 150,
-						// channelCount: 1,
-						frameRate,
-						sampleRate: 100,
-						sampleSize: 2,
-						autoGainControl: true,
-						suppressLocalAudioPlayback: true,
-					},
-					video: {
-						cursor: showCursor ? 'always' : 'never',
-						height: 720,
-						aspectRatio: 16 / 9,
-						frameRate,
-						// resizeMode: 'none',
-					},
-					surfaceSwitching: 'include',
-					systemAudio: systemAudio ? 'include' : 'exclude',
-					selfBrowserSurface: 'exclude',
-					restrictOwnAudio: true,
-				},
-				handleCancelHost
-			);
-			console.log(stream, 'stream');
-			if (!stream) throw new Error('no permission given');
+    [BREAKPOINT]: {
+      fontSize: 18,
+    },
+  },
 
-			hostStreamRef.current = stream;
-			const sock = initSocket({
-				auth: {
-					isHosting: 'yes',
-				},
-			});
-			if (myVideoRef.current) {
-				if (!hasVideo) {
-					setHasVideo(true);
-				}
-				myVideoRef.current.srcObject = stream;
-				myVideoRef.current.onloadedmetadata = () => {
-					myVideoRef.current?.play();
-				};
-			}
+  controls: {
+    marginTop: theme.spacing.xl * 2,
 
-			const roomId = createRoomId(8);
-			setRoomId(roomId);
-			sock.connect();
-			sock.emit('create-room', roomId);
+    [BREAKPOINT]: {
+      marginTop: theme.spacing.xl,
+    },
+  },
 
-			// when user joins my room
-			sock.on('user-joined', async ({ userId, socketId, roomId }) => {
-				const newHostPeer = await createHostPeer(stream);
-				newHostPeer.on('signal', data => {
-					sock.emit('client:connect-from-host', {
-						userId,
-						signal: data,
-						roomId,
-					});
-				});
-				newHostPeer.on('error', err => {
-					console.log(err);
-					newHostPeer.destroy();
-				});
-				newHostPeer.on('connect', () => {
-					console.log(`host connected to ${userId}`);
-				});
+  control: {
+    height: 54,
+    paddingLeft: 38,
+    paddingRight: 38,
 
-				hostPeers.set(userId, {
-					peer: newHostPeer,
-					used: true,
-				});
-				setHostPeers(new Map(hostPeers));
-			});
+    [BREAKPOINT]: {
+      height: 54,
+      paddingLeft: 18,
+      paddingRight: 18,
+      flex: 1,
+    },
+  },
+}));
 
-			// when client tries to connect with me
-			sock.on('host:on-client-connect', ({ signal, userId }) => {
-				if (hostPeers.has(userId)) {
-					const value = hostPeers.get(userId)!;
+const IndexPage = () => {
+  const { classes } = useStyles();
+  const router = useRouter();
+  const [roomCode, setRoomCode] = useState("");
 
-					value.peer.signal(signal);
-				}
-			});
+  const onCreateRoom = () => {
+    showNotification({
+      message: "creating room",
+      loading: true,
+      autoClose: false,
+      id: "room-create-notification",
+      title: "room",
+      disallowClose: true,
+    });
+    (async () => {
+      const dbRef = collection(database, "rooms");
+      const roomSnapshot = (await getDocs(dbRef)).docs.map(
+        (doc) => doc.data() as { code: string }
+      );
+      console.log({ roomSnapshot });
+      const roomId = await createRoomId(9, roomSnapshot);
 
-			//when someone leaves
-			sock.on('user-left', ({ socketId, userId }) => {
-				if (hostPeers.has(userId)) {
-					const value = hostPeers.get(userId);
-					value?.peer.destroy();
-					hostPeers.delete(userId);
+      updateNotification({
+        message: "room created now redirecting",
+        loading: false,
+        autoClose: 1000,
+        id: "room-create-notification",
+        title: "room",
+        disallowClose: true,
+      });
+      // add this roomcode to firebase
+      const addedRoom = await addDoc(dbRef, {
+        code: roomId,
+        createAt: Timestamp.now(),
+      });
 
-					setHostPeers(new Map(hostPeers));
-				}
-			});
+      setRoomCode(roomId);
 
-			setIsHosting(true);
-		} catch (error) {}
-	};
+      router.push(`/${roomId}`);
+    })();
+  };
+  const onJoinRoom = () => {
+    router.push(roomCode);
+  };
+  const theme = useMantineTheme();
 
-	const handleJoinRoom = () => {
-		setModalState({
-			open: true,
-			mode: 'client',
-		});
-	};
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  return (
+    <div className={classes.wrapper}>
+      <Container size={700} className={classes.inner}>
+        <h1 className={classes.title}>
+          It&apos;s{" "}
+          <Text
+            component="span"
+            variant="gradient"
+            gradient={{ from: "pink", to: "white" }}
+            inherit
+          >
+            Muvitime
+          </Text>{" "}
+          <Text component="p" inherit my={"sm"} size={"md"}>
+            watch movies with friends
+          </Text>
+        </h1>
 
-	const [isReceiving, setReceiving] = useState(false);
-	const receivePeerRef = useRef<Peer.Instance>();
+        <Text className={classes.description} color="dimmed">
+          you don&apos;t have to create an account or pay anything. It&apos;s
+          completely free. Just create a room or join one.
+        </Text>
 
-	const [debug, setDebug] = useState<string[]>([]);
-	const connectToRoom = () => {
-		try {
-			const s = initSocket({
-				auth: {
-					isHosting: 'no',
-				},
-			});
-			s.connect();
-			s.emit('user-join-room', roomCode);
-			setRoomId(roomCode);
+        <Group className={classes.controls}>
+          <Button
+            size="xl"
+            className={classes.control}
+            variant="gradient"
+            gradient={{ from: "pink", to: "purple" }}
+            onClick={() => {
+              onCreateRoom();
+            }}
+          >
+            Create Room
+          </Button>
 
-			s.on('host-left', () => {
-				myVideoRef.current!.srcObject = null;
-			});
-
-			s.on('signal-from-host', ({ signal }) => {
-				setDebug(prev => [...prev, 'received signal from host']);
-				if (!receivePeerRef.current) {
-					const receivePeer = new Peer({
-						initiator: false,
-						trickle: true,
-						stream: hostStreamRef.current,
-						config: {
-							iceServers: [...mine.iceServers],
-							iceTransportPolicy: 'all',
-							bundlePolicy: 'balanced',
-						},
-					});
-					receivePeerRef.current = receivePeer;
-					receivePeer.on('stream', curStream => {
-						if (!hasVideo) {
-							setHasVideo(true);
-						}
-						const temp = JSON.stringify({ strream: curStream });
-						setDebug(prev => [...prev, temp]);
-						hostedStream.current = curStream;
-						if (myVideoRef.current) {
-							setDebug(prev => [...prev, 'video exists']);
-							myVideoRef.current.srcObject = curStream;
-							myVideoRef.current.muted = true;
-							myVideoRef.current.onloadedmetadata = () => {
-								setDebug(prev => [...prev, 'video will play now']);
-								myVideoRef.current?.play();
-							};
-						}
-					});
-
-					receivePeer.on('signal', data => {
-						s.emit('connect-with-host', {
-							socketId: s.id,
-							signal: data,
-							userId,
-							roomId: roomCode,
-						});
-					});
-					receivePeer.on('error', err => {
-						console.log(err);
-						receivePeer?.destroy();
-					});
-					receivePeer.on('connect', () => {
-						console.log(`client connected to host`);
-					});
-					receivePeer.signal(signal);
-				} else {
-					receivePeerRef.current.signal(signal);
-				}
-
-				setReceiving(true);
-			});
-
-			setRoomCode('');
-			setModalState({
-				open: false,
-				mode: undefined,
-			});
-			setReceiving(true);
-		} catch (error) {
-			console.error(error);
-		}
-	};
-
-	const handleStopWatching = async () => {
-		handleCancelHost();
-		leaveRoom({
-			roomId,
-			socket,
-			userId,
-		});
-		DestroyPeer(receivePeerRef.current);
-
-		if (myVideoRef.current) {
-			myVideoRef.current.srcObject = null;
-		}
-
-		setReceiving(false);
-		setHasVideo(false);
-	};
-
-	return (
-		<main>
-			{process.env.NODE_ENV === 'development' ? <Text align='center'>{JSON.stringify(debug)}</Text> : null}
-			<Container>
-				<Center className='h-screen '>
-					<Grid gutter={'md'} className='w-full'>
-						<Grid.Col span={12}>
-							<AspectRatio ratio={16 / 9}>
-								{/* <VideoJS
-									visible={hasVideo}
-									responsive
-									playsinline
-									fill
-									controls
-									onReady={player => {
-										const tech = player.tech();
-										const el = tech.el();
-										myVideoRef.current = el as HTMLVideoElement;
-										player.on('pause', () => {
-											console.log(myVideoRef.current);
-										});
-									}}></VideoJS> */}
-
-								<Skeleton visible={!hasVideo} animate={true} />
-								<video
-									style={{
-										display: hasVideo ? 'block' : 'none',
-										objectFit: 'contain',
-									}}
-									ref={myVideoRef}
-									muted
-									controls
-									playsInline></video>
-							</AspectRatio>
-						</Grid.Col>
-						<Grid.Col>
-							<Text align='center'>room id : {roomId ? roomId : 'No room id'}</Text>
-							{/* <Text align='center'>user id : {userId}</Text> */}
-						</Grid.Col>
-
-						{isHosting ? (
-							<>
-								<Grid.Col span={12}>
-									<Button
-										fullWidth
-										onClick={() => {
-											handleCancelHost();
-										}}>
-										Cancel Host
-									</Button>
-								</Grid.Col>
-							</>
-						) : isReceiving ? (
-							<>
-								<Grid.Col span={12}>
-									<Button
-										fullWidth
-										onClick={() => {
-											handleStopWatching();
-										}}>
-										Leave Room
-									</Button>
-								</Grid.Col>
-							</>
-						) : (
-							<>
-								<Grid.Col span={6}>
-									<Button
-										fullWidth
-										onClick={() => {
-											setModalState({
-												open: true,
-												mode: 'host',
-											});
-										}}>
-										Host
-									</Button>
-								</Grid.Col>
-								<Grid.Col span={6}>
-									<Button fullWidth onClick={() => handleJoinRoom()}>
-										{' '}
-										Join Room{' '}
-									</Button>
-								</Grid.Col>
-							</>
-						)}
-					</Grid>
-				</Center>
-			</Container>
-			<Modal
-				trapFocus
-				centered
-				opened={modalState.open}
-				onClose={() =>
-					setModalState({
-						open: false,
-						mode: undefined,
-					})
-				}
-				overlayOpacity={0.7}
-				overlayBlur={3}
-				overlayColor={theme.colorScheme === 'dark' ? theme.colors.dark[9] : theme.colors.gray[2]}>
-				<Flex direction={'column'} rowGap={30}>
-					{modalState.mode === 'client' ? (
-						<>
-							<TextInput
-								styles={theme => ({
-									input: {
-										textAlign: 'center',
-									},
-								})}
-								size='xl'
-								placeholder='Enter room code'
-								className='text-center'
-								value={roomCode}
-								onChange={evt => setRoomCode(evt.currentTarget.value)}
-							/>
-							<Button variant='outline' onClick={() => connectToRoom()}>
-								Proceed
-							</Button>
-						</>
-					) : modalState.mode === 'host' ? (
-						<>
-							<SimpleGrid cols={3}>
-								<NumberInput value={frameRate} onChange={evt => setFrameRate(Number(evt))} />
-								<Button variant='outline' onClick={() => setFrameRate(30)}>
-									30 fps
-								</Button>
-								<Button variant='outline' onClick={() => setFrameRate(60)}>
-									60 fps
-								</Button>
-							</SimpleGrid>
-							<Checkbox
-								label='System Audio'
-								checked={systemAudio}
-								onChange={event => setSystemAudio(event.currentTarget.checked)}
-							/>
-							<Checkbox
-								label='Cursor'
-								checked={showCursor}
-								onChange={event => setShowCursor(event.currentTarget.checked)}
-							/>
-							<Button variant='outline' onClick={() => handleHost()}>
-								Proceed
-							</Button>
-						</>
-					) : null}
-				</Flex>
-			</Modal>
-		</main>
-	);
+          <Button
+            size="xl"
+            variant="outline"
+            color={"yellow"}
+            className={classes.control}
+            onClick={() => {
+              setIsModalOpen(true);
+            }}
+          >
+            Join Room
+          </Button>
+        </Group>
+      </Container>
+      <Modal
+        trapFocus
+        centered
+        opened={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        overlayOpacity={0.7}
+        overlayBlur={3}
+        overlayColor={
+          theme.colorScheme === "dark"
+            ? theme.colors.dark[9]
+            : theme.colors.gray[2]
+        }
+      >
+        <Flex direction={"column"} rowGap={30}>
+          <TextInput
+            styles={(theme) => ({
+              input: {
+                textAlign: "center",
+              },
+            })}
+            size="xl"
+            placeholder="Enter room code"
+            className="text-center"
+            value={roomCode}
+            onChange={(evt) => setRoomCode(evt.currentTarget.value)}
+          />
+          <Button
+            variant="outline"
+            color={"yellow"}
+            onClick={() => onJoinRoom()}
+          >
+            Proceed
+          </Button>
+        </Flex>
+      </Modal>
+    </div>
+  );
 };
 
-export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
-	let userId = undefined;
-	const useridInCookie = getCookie('user-id', { req, res, httpOnly: true });
-	if (useridInCookie) {
-		userId = useridInCookie;
-	} else {
-		userId = nanoid(8);
-		setCookie('user-id', { req, res }, { httpOnly: true, maxAge: 60 * 60 * 24 });
-	}
+export const getServerSideProps: GetServerSideProps = async ({ req }) => {
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = forwarded
+    ? (forwarded as string).split(/, /)[0]
+    : req.socket.remoteAddress;
 
-	return {
-		props: {
-			userId,
-		},
-	};
+  console.log({ ip });
+
+  return {
+    props: {},
+  };
 };
 
 export default IndexPage;

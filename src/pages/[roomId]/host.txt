@@ -1,0 +1,333 @@
+import {
+  ActionIcon,
+  AspectRatio,
+  Box,
+  Button,
+  Center,
+  Divider,
+  Drawer,
+  Flex,
+  Popover,
+  Skeleton,
+  TextInput,
+} from "@mantine/core";
+import { useClipboard } from "@mantine/hooks";
+import { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
+import {
+  createElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  IconPhoneCall,
+  IconMicrophone,
+  IconScreenShare,
+  IconScreenShareOff,
+  IconMessage,
+  IconPhoneOff,
+  IconPlane,
+  IconDotsVertical,
+} from "@tabler/icons-react";
+import { getStream } from "@/utils/StreamHelpers";
+import {
+  DestroyPeer,
+  createPeer,
+  initSocket,
+  removeStream,
+} from "@/utils/Helpers";
+import { io } from "socket.io-client";
+import { nanoid } from "nanoid";
+import { SocketContext } from "@/contexts/SocketContext";
+import SimplePeer from "simple-peer";
+import { showNotification, updateNotification } from "@mantine/notifications";
+import { useMuviTime } from "@/utils/useMuviTime";
+const getShareAbleLinkByRoomId = (host: string, roomId: string) => {
+  return `${host}/${roomId}`;
+};
+
+const socket = initSocket();
+interface HostPageProps {
+  shareLink: string;
+  roomId: string;
+}
+const getVideoStream = (stream?: MediaStream) => {
+  if (!stream) throw new Error("no stream provided");
+  const videoTrack = stream.getVideoTracks();
+  return new MediaStream(videoTrack!);
+};
+const HostPage = ({ shareLink, roomId }: HostPageProps) => {
+  const clipboard = useClipboard({ timeout: 1000 });
+  const [isSharing, setIsSharing] = useState(false);
+
+  const [socket, peerMap, totalStreamRef, streamMap] = useMuviTime({ roomId });
+
+  const streamRef = useRef<MediaStream>();
+  const hostVideoRef = useRef<HTMLVideoElement>(null);
+  const removeShareRefAndState = () => {
+    console.log("call ended");
+    if (hostVideoRef.current) {
+      hostVideoRef.current.srcObject = null;
+    }
+    setIsSharing(false);
+  };
+  const stopScreenShare = () => {
+    removeShareRefAndState();
+
+    //remove tracks
+    removeStream(streamRef.current);
+
+    //destroy peer
+    DestroyPeer();
+  };
+  const startScreenShare = async () => {
+    setIsSharing(true);
+    const audioConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      channelCount: 1,
+      sampleRate: 100,
+      sampleSize: 2,
+      autoGainControl: true,
+      suppressLocalAudioPlayback: true,
+    };
+    const videoConstraints = {
+      height: 720,
+      aspectRatio: 16 / 9,
+      frameRate: 30,
+      // resizeMode: 'none',
+    };
+    const stream = await getStream(
+      { video: videoConstraints, audio: audioConstraints },
+      removeShareRefAndState
+    );
+    streamRef.current = stream;
+    const videoTracks = stream?.getVideoTracks();
+    const audioTracks = stream?.getAudioTracks();
+    if (hostVideoRef.current) {
+      try {
+        hostVideoRef.current.srcObject = getVideoStream(stream);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    if (totalStreamRef.current) {
+      totalStreamRef.current.addTrack(videoTracks![0]);
+      totalStreamRef.current.addTrack(audioTracks![0]);
+    }
+    // if (peerMap.size > 0 && stream) {
+    //   peerMap.forEach((peer) => {
+    //     peer.addStream(stream);
+    //   });
+    // }
+  };
+  console.log(peerMap, "peerMap");
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const handleChat = () => {
+    // first toggle chat mode
+    setIsChatOpen((prev) => !prev);
+
+    //
+  };
+
+  const friendsEl = useRef<
+    Map<string, { checked: boolean; el: HTMLVideoElement }>
+  >(new Map());
+
+  useEffect(() => {
+    if (friendsEl.current.size > 0) {
+      friendsEl.current.forEach((value, key) => {
+        if (value.checked) return;
+        value.checked = true;
+        let stream = streamMap.get(key);
+        if (stream) {
+          value.el.srcObject = stream;
+        }
+      });
+    }
+  }, [friendsEl.current, streamMap]);
+  useEffect(() => {
+    if (streamMap.size > 0) {
+      console.log(streamMap, "streamMap");
+    }
+  }, [streamMap]);
+
+  console.log("streamMap ", streamMap);
+
+  return (
+    <div className="relative flex h-screen flex-col items-center justify-center  md:flex-row">
+      {/* Drawer */}
+      <Drawer
+        overlayOpacity={0.55}
+        overlayBlur={3}
+        withCloseButton={false}
+        position="right"
+        opened={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        padding="xl"
+        size="xl"
+        styles={{
+          drawer: {
+            display: "flex",
+          },
+          body: {
+            flex: 1,
+          },
+        }}
+      >
+        {/* Drawer content */}
+        <div className="flex h-full flex-col gap-5">
+          <div className="flex-1 bg-green-600"></div>
+          <div className="flex gap-5">
+            <TextInput
+              placeholder="let's watch sholay :D"
+              radius="xl"
+              size="md"
+              styles={{
+                root: {
+                  flex: 1,
+                },
+              }}
+            />
+            <ActionIcon color="indigo" size="xl" radius="xl" variant="filled">
+              <IconPlane />
+            </ActionIcon>
+          </div>
+        </div>
+      </Drawer>
+
+      <div className="absolute flex w-full flex-1 flex-col items-center gap-3 px-10 md:flex-row ">
+        <AspectRatio ratio={16 / 9} className="w-full flex-1">
+          <Skeleton animate></Skeleton>
+          <video
+            muted
+            autoPlay
+            playsInline
+            placeholder="No video"
+            ref={hostVideoRef}
+          ></video>
+        </AspectRatio>
+        <div className="max-w-full overflow-hidden">
+          <p className="text-center text-xl">Friends</p>
+          <div className="flex items-center gap-3 overflow-x-auto p-3 md:max-h-[80%] md:flex-col md:overflow-y-auto md:overflow-x-visible">
+            {Array.from(streamMap).map((userPeer) => {
+              return (
+                <div
+                  key={userPeer[0]}
+                  className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-neutral-600"
+                >
+                  <video
+                    ref={(ref) => {
+                      friendsEl.current.set(userPeer[0], {
+                        checked: false,
+                        el: ref!,
+                      });
+                    }}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="block h-full w-full object-contain"
+                  ></video>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+
+      <div className="absolute bottom-10 flex w-11/12 items-center justify-center space-x-10 rounded-md bg-black bg-opacity-40 py-4 px-3 text-white  backdrop-blur-xl md:w-1/2 ">
+        {/* Microphone */}
+        <AspectRatio ratio={1} className="w-12">
+          <Button className="flex items-center justify-center rounded-full bg-neutral-800 text-green-500">
+            <IconMicrophone />
+          </Button>
+        </AspectRatio>
+
+        {/* Monitor */}
+        <AspectRatio ratio={1} className="w-12">
+          {isSharing ? (
+            <Button
+              onClick={() => {
+                stopScreenShare();
+              }}
+              className="flex items-center justify-center rounded-full bg-red-600 text-white"
+            >
+              <IconScreenShareOff aria-label="screen-share" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                startScreenShare();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800"
+            >
+              <IconScreenShare aria-label="screen-share" />
+            </Button>
+          )}
+        </AspectRatio>
+
+        {/* Chat Box */}
+        <AspectRatio ratio={1} className="w-12">
+          <Button
+            onClick={() => {
+              handleChat();
+            }}
+            className="flex items-center justify-center rounded-full bg-neutral-800 text-blue-500"
+          >
+            <IconMessage />
+          </Button>
+        </AspectRatio>
+
+        {/* Call End */}
+        <AspectRatio ratio={1} className="w-12">
+          <Button className="flex items-center justify-center rounded-full bg-neutral-800 text-red-500">
+            <IconPhoneOff />
+          </Button>
+        </AspectRatio>
+
+        <Popover width={200} position="bottom" withArrow shadow="md">
+          <Popover.Target>
+            <button className="cursor-pointer border-none bg-transparent outline-none">
+              <IconDotsVertical />
+            </button>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <p>{shareLink}</p>
+            <button
+              onClick={() => {
+                clipboard.copy(shareLink);
+              }}
+            >
+              {clipboard.copied ? "copied" : "copy"}
+            </button>
+          </Popover.Dropdown>
+        </Popover>
+      </div>
+    </div>
+  );
+};
+
+export const getServerSideProps: GetServerSideProps = async ({
+  req,
+  query,
+  params,
+}) => {
+  const host = req.headers.host;
+  const roomId = query.roomId;
+
+  const shareLink = getShareAbleLinkByRoomId(host!, roomId as string);
+  return {
+    props: {
+      shareLink,
+      roomId,
+    },
+  };
+};
+
+export default HostPage;

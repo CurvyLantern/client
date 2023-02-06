@@ -1,0 +1,362 @@
+import { MyCustomVideo } from "@/components/CustomVideo";
+import { useMainStore } from "@/store/BaseStore";
+import { audioConstraints, videoConstraints } from "@/utils/Constraints";
+import { removeStream } from "@/utils/Helpers";
+import { getStream } from "@/utils/StreamHelpers";
+import useSharing from "@/utils/useSharing";
+import {
+  ActionIcon,
+  AspectRatio,
+  Button,
+  Drawer,
+  Popover,
+  Skeleton,
+  TextInput,
+} from "@mantine/core";
+import { useClipboard } from "@mantine/hooks";
+import { hideNotification } from "@mantine/notifications";
+import {
+  IconDotsVertical,
+  IconMessage,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconPhoneOff,
+  IconPlane,
+  IconScreenShare,
+  IconScreenShareOff,
+} from "@tabler/icons-react";
+import { GetServerSideProps } from "next";
+import Router, { useRouter } from "next/router";
+import { useMemo, useRef, useState } from "react";
+import { useUnmount } from "react-use";
+
+const room_notification_id = "room-notification";
+
+const getShareAbleLinkByRoomId = (host: string, roomId: string) => {
+  return `${host}/${roomId}`;
+};
+interface HostPageProps {
+  shareLink: string;
+  roomId: string;
+}
+const getVideoStream = (stream?: MediaStream) => {
+  if (!stream) throw new Error("no stream provided");
+  const videoTrack = stream.getVideoTracks();
+  return new MediaStream(videoTrack!);
+};
+const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
+  const clipboard = useClipboard({ timeout: 1000 });
+
+  const router = useRouter();
+
+  const [isSharing, setIsSharing] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const [myTotalStreamRef, createNewInitiatorPeer, clearEveryThing] =
+    useSharing(roomId);
+
+  const hostScreenStream = useRef<MediaStream | null>(null);
+  const hostCallStream = useRef<MediaStream | null>(null);
+  const hostVideoRef = useRef<HTMLVideoElement>(null);
+
+  const userData = useMainStore((state) => state.userData);
+
+  const removeShareRefAndState = () => {
+    console.log("call ended");
+    if (hostVideoRef.current) {
+      hostVideoRef.current.srcObject = null;
+    }
+    setIsSharing(false);
+  };
+  const stopScreenShare = () => {
+    removeShareRefAndState();
+
+    //remove tracks
+    removeStream(hostScreenStream.current);
+
+    //destroy peer
+    // DestroyPeer();
+  };
+  const startScreenShare = async () => {
+    setIsSharing(true);
+
+    const stream = await getStream(
+      { video: videoConstraints, audio: audioConstraints },
+      removeShareRefAndState
+    );
+    if (stream) {
+      if (myTotalStreamRef.current) {
+        // if there is a old stream
+        for (let track of stream.getTracks()) {
+          myTotalStreamRef.current.addTrack(track);
+        }
+      } else {
+        // else add this new stream to old stream
+        myTotalStreamRef.current = stream;
+      }
+      userData.forEach((_, friendId) => {
+        createNewInitiatorPeer({
+          stream: myTotalStreamRef.current,
+          forWhomId: friendId,
+        });
+      });
+
+      if (hostVideoRef.current) {
+        try {
+          hostVideoRef.current.srcObject = getVideoStream(stream);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+  };
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const handleChat = () => {
+    // first toggle chat mode
+    setIsChatOpen((prev) => !prev);
+
+    //
+  };
+
+  const socket = useMainStore((state) => state.socket);
+
+  useUnmount(() => {
+    console.log("unmounting react use");
+    hideNotification(room_notification_id);
+    socket?.emit("logging-out", { roomId });
+  });
+
+  const callId = useRef("");
+  const startCall = async () => {
+    try {
+      const callStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: false,
+      });
+
+      callId.current = callStream.id;
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const endCall = () => {};
+
+  const handleMute = () => {
+    setIsMuted(true);
+    endCall();
+  };
+
+  const handleUnMute = () => {
+    setIsMuted(false);
+    startCall();
+  };
+
+  const handleCancelCall = () => {
+    clearEveryThing(() => {
+      router.push("/");
+    });
+  };
+  const friendsVideoEl = useMemo(() => {
+    return Array.from(userData);
+  }, [userData]);
+  return (
+    <div className="relative flex h-screen flex-col items-center justify-center overflow-hidden  md:flex-row">
+      {/* Drawer */}
+
+      <Drawer
+        overlayOpacity={0.55}
+        overlayBlur={3}
+        withCloseButton={false}
+        position="right"
+        opened={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        padding="xl"
+        size="xl"
+        styles={{
+          drawer: {
+            display: "flex",
+          },
+          body: {
+            flex: 1,
+          },
+        }}
+      >
+        {/* Drawer content */}
+        <div className="flex h-full flex-col gap-5">
+          <div className="flex-1 bg-green-600"></div>
+          <div className="flex gap-5">
+            <TextInput
+              placeholder="let's watch sholay :D"
+              radius="xl"
+              size="md"
+              styles={{
+                root: {
+                  flex: 1,
+                },
+              }}
+            />
+            <ActionIcon color="indigo" size="xl" radius="xl" variant="filled">
+              <IconPlane />
+            </ActionIcon>
+          </div>
+        </div>
+      </Drawer>
+
+      <div className="absolute flex w-full flex-1 flex-col items-center gap-3 px-10 md:flex-row ">
+        <AspectRatio ratio={16 / 9} className="w-full flex-1">
+          <Skeleton animate></Skeleton>
+          <video
+            muted
+            autoPlay
+            playsInline
+            placeholder="No video"
+            ref={hostVideoRef}
+          ></video>
+        </AspectRatio>
+        <div className="max-w-full flex-1 overflow-hidden">
+          <p className="text-center text-xl">Friends</p>
+          <div className="flex items-center gap-3 overflow-x-auto p-3 md:max-h-[80%] md:flex-col md:overflow-y-auto md:overflow-x-visible">
+            {friendsVideoEl.map(([userId]) => {
+              return (
+                <div
+                  key={userId}
+                  className="flex h-auto w-60 shrink-0 items-center justify-center  bg-neutral-600"
+                >
+                  <MyCustomVideo userId={userId} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Bar */}
+
+      <div className="absolute bottom-10 flex w-11/12 items-center justify-center space-x-10 rounded-md bg-black bg-opacity-40 py-4 px-3 text-white  backdrop-blur-xl md:w-1/2 ">
+        {/* <p className="text-white">{track}</p> */}
+        {/* Microphone */}
+        <AspectRatio ratio={1} className="w-12">
+          {isMuted ? (
+            <Button
+              onClick={() => {
+                handleUnMute();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800 text-red-500"
+            >
+              <IconMicrophoneOff />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                handleMute();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800 text-green-500"
+            >
+              <IconMicrophone />
+            </Button>
+          )}
+        </AspectRatio>
+        {/* Monitor */}
+        <AspectRatio ratio={1} className="w-12">
+          {isSharing ? (
+            <Button
+              onClick={() => {
+                stopScreenShare();
+              }}
+              className="flex items-center justify-center rounded-full bg-red-600 text-white"
+            >
+              <IconScreenShareOff aria-label="screen-share" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                startScreenShare();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800"
+            >
+              <IconScreenShare aria-label="screen-share" />
+            </Button>
+          )}
+        </AspectRatio>
+        {/* Chat Box */}
+        <AspectRatio ratio={1} className="w-12">
+          <Button
+            onClick={() => {
+              handleChat();
+            }}
+            className="flex items-center justify-center rounded-full bg-neutral-800 text-blue-500"
+          >
+            <IconMessage />
+          </Button>
+        </AspectRatio>
+        {/* Call End */}
+        <AspectRatio ratio={1} className="w-12">
+          <Button
+            onClick={() => {
+              handleCancelCall();
+            }}
+            className="flex items-center justify-center rounded-full bg-neutral-800 text-red-500"
+          >
+            <IconPhoneOff />
+          </Button>
+        </AspectRatio>
+
+        <div>
+          <Popover
+            middlewares={{ flip: true, shift: true, inline: true }}
+            trapFocus
+            position="top"
+            withArrow
+            shadow="md"
+          >
+            <Popover.Target>
+              {/* <Button>Toggle popover</Button> */}
+              <Button variant="subtle" p={0} className="">
+                <IconDotsVertical />
+              </Button>
+            </Popover.Target>
+            <Popover.Dropdown
+              sx={(theme) => ({
+                background:
+                  theme.colorScheme === "dark"
+                    ? theme.colors.dark[7]
+                    : theme.white,
+              })}
+            >
+              <p>{shareLink}</p>
+              <Button
+                fullWidth
+                compact
+                color={clipboard.copied ? "green" : "blue"}
+                onClick={() => {
+                  clipboard.copy(shareLink);
+                }}
+              >
+                {clipboard.copied ? "copied" : "copy"}
+              </Button>
+            </Popover.Dropdown>
+          </Popover>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const getServerSideProps: GetServerSideProps = async ({
+  req,
+  query,
+}) => {
+  const host = req.headers.host;
+  const roomId = query.roomId;
+
+  const shareLink = getShareAbleLinkByRoomId(host!, roomId as string);
+  return {
+    props: {
+      shareLink,
+      roomId,
+    },
+  };
+};
+
+export default MovieRoomPage;
