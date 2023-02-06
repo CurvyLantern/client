@@ -56,7 +56,6 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
     useSharing(roomId);
 
   const hostScreenStream = useRef<MediaStream | null>(null);
-  const hostCallStream = useRef<MediaStream | null>(null);
   const hostVideoRef = useRef<HTMLVideoElement>(null);
 
   const userData = useMainStore((state) => state.userData);
@@ -85,6 +84,8 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       removeShareRefAndState
     );
     if (stream) {
+      // for cancelling later
+      hostScreenStream.current = stream;
       if (myTotalStreamRef.current) {
         // if there is a old stream
         for (let track of stream.getTracks()) {
@@ -128,7 +129,11 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   });
 
   const callId = useRef("");
+  const hostCallStream = useRef<MediaStream | null>(null);
+  const [hasStartedCalling, setHasStartedCalling] = useState(false);
+
   const startCall = async () => {
+    setHasStartedCalling(true);
     try {
       const callStream = await navigator.mediaDevices.getUserMedia({
         audio: audioConstraints,
@@ -136,6 +141,25 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       });
 
       callId.current = callStream.id;
+      if (callStream) {
+        // for cancelling later
+        hostCallStream.current = callStream;
+        if (myTotalStreamRef.current) {
+          // if there is a old stream
+          for (let track of callStream.getTracks()) {
+            myTotalStreamRef.current.addTrack(track);
+          }
+        } else {
+          // else add this new stream to old stream
+          myTotalStreamRef.current = callStream;
+        }
+        userData.forEach((_, friendId) => {
+          createNewInitiatorPeer({
+            stream: myTotalStreamRef.current,
+            forWhomId: friendId,
+          });
+        });
+      }
     } catch (error) {
       console.error(error);
     }
@@ -143,13 +167,24 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   const endCall = () => {};
 
   const handleMute = () => {
+    console.log("muting");
     setIsMuted(true);
-    endCall();
+    // endCall();
+    const maybeCallStream = myTotalStreamRef.current?.getTrackById(
+      callId.current
+    );
+    if (maybeCallStream) maybeCallStream.enabled = false;
   };
 
   const handleUnMute = () => {
+    console.log("un muting");
+
     setIsMuted(false);
-    startCall();
+    if (!hasStartedCalling) startCall();
+    const maybeCallStream = myTotalStreamRef.current?.getTrackById(
+      callId.current
+    );
+    if (maybeCallStream) maybeCallStream.enabled = true;
   };
 
   const handleCancelCall = () => {
