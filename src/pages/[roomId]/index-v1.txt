@@ -1,11 +1,9 @@
-import { GuestVideo } from "@/components/CustomVideo";
-import { ActionButtonParent } from "@/components/action/ActionButtonParent";
-import { ActionMic } from "@/components/action/ActionMic";
-import { usePeer } from "@/hooks/usePeer";
-import { usePeerStore } from "@/store/PeerStore";
+import { MyCustomVideo } from "@/components/CustomVideo";
+import { useMainStore } from "@/store/BaseStore";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
-import { stopStream } from "@/utils/Helpers";
+import { removeStream } from "@/utils/Helpers";
 import { getStream } from "@/utils/StreamHelpers";
+import useSharing from "@/utils/useSharing";
 import {
   ActionIcon,
   AspectRatio,
@@ -28,8 +26,8 @@ import {
   IconScreenShareOff,
 } from "@tabler/icons-react";
 import { GetServerSideProps } from "next";
-import { useRouter } from "next/router";
-import { useMemo, useRef, useState } from "react";
+import Router, { useRouter } from "next/router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUnmount } from "react-use";
 
 const room_notification_id = "room-notification";
@@ -48,45 +46,61 @@ const getVideoStream = (stream?: MediaStream) => {
 };
 const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   const clipboard = useClipboard({ timeout: 1000 });
-  const router = useRouter();
 
-  const {
-    clearEveryThing,
-    addCallStream,
-    addScreenStream,
-    removeStream: removePeerStream,
-  } = usePeer(roomId);
+  const router = useRouter();
 
   const [isSharing, setIsSharing] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [hasStartedCalling, setHasStartedCalling] = useState(false);
 
-  const socket = usePeerStore((state) => state.socket);
-  const peerData = usePeerStore((state) => state.peerData);
+  // test
+  // FIXME
+  // BUG
+
+  const [myTotalStreamRef, createNewInitiatorPeer, clearEveryThing, peerMap] =
+    useSharing(roomId);
 
   const hostScreenStream = useRef<MediaStream | null>(null);
   const hostVideoRef = useRef<HTMLVideoElement>(null);
-  const callId = useRef("");
-  const hostCallStream = useRef<MediaStream | null>(null);
 
-  const friendsVideoEl = useMemo(() => {
-    return Array.from(peerData);
-  }, [peerData]);
+  const userData = useMainStore((state) => state.userData);
 
   const startScreenShare = async () => {
     setIsSharing(true);
 
     const stream = await getStream(
       { video: videoConstraints, audio: audioConstraints },
-      stopScreenShare
+      removeShareRefAndState
     );
     if (stream) {
       // for cancelling later
       hostScreenStream.current = stream;
+      if (myTotalStreamRef.current) {
+        // if there is a old stream
+        for (let track of stream.getTracks()) {
+          myTotalStreamRef.current.addTrack(track);
+        }
+      } else {
+        // else add this new stream to old stream
+        myTotalStreamRef.current = stream;
+      }
+      // TODO: uncomment later
+      // userData.forEach((_, friendId) => {
+      //   createNewInitiatorPeer({
+      //     stream: myTotalStreamRef.current,
+      //     forWhomId: friendId,
+      //   });
+      // });
 
       //BUG :do this pure simple peer way
-      addScreenStream(stream);
+      peerMap.current.forEach((obj, key) => {
+        let peer = obj.peer;
+        if (myTotalStreamRef.current) {
+          console.log("pure simple way");
+          peer?.addStream(myTotalStreamRef.current);
+        }
+
+        console.log(peer, key);
+      });
 
       if (hostVideoRef.current) {
         try {
@@ -99,18 +113,24 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   };
 
   const stopScreenShare = () => {
+    removeShareRefAndState();
+
+    //remove tracks
+    removeStream(hostScreenStream.current);
+
+    //destroy peer
+    // DestroyPeer();
+  };
+
+  const removeShareRefAndState = () => {
     console.log("call ended");
-    setIsSharing(false);
     if (hostVideoRef.current) {
       hostVideoRef.current.srcObject = null;
     }
-    //remove stream from peer
-    removePeerStream(hostScreenStream.current);
-
-    //remove tracks
-    stopStream(hostScreenStream.current);
+    setIsSharing(false);
   };
 
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const handleChat = () => {
     // first toggle chat mode
     setIsChatOpen((prev) => !prev);
@@ -118,8 +138,19 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
     //
   };
 
+  const socket = useMainStore((state) => state.socket);
+
+  useUnmount(() => {
+    console.log("unmounting react use");
+    hideNotification(room_notification_id);
+    socket?.emit("logging-out", { roomId });
+  });
+
+  const callId = useRef("");
+  const hostCallStream = useRef<MediaStream | null>(null);
+  const [hasStartedCalling, setHasStartedCalling] = useState(false);
+
   const startCall = async () => {
-    if (hasStartedCalling) return false;
     setHasStartedCalling(true);
     try {
       const callStream = await navigator.mediaDevices.getUserMedia({
@@ -131,57 +162,57 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       if (callStream) {
         // for cancelling later
         hostCallStream.current = callStream;
-
-        addCallStream(callStream);
+        if (myTotalStreamRef.current) {
+          // if there is a old stream
+          for (let track of callStream.getTracks()) {
+            myTotalStreamRef.current.addTrack(track);
+          }
+        } else {
+          // else add this new stream to old stream
+          myTotalStreamRef.current = callStream;
+        }
+        userData.forEach((_, friendId) => {
+          createNewInitiatorPeer({
+            stream: myTotalStreamRef.current,
+            forWhomId: friendId,
+          });
+        });
       }
-      return true;
     } catch (error) {
       console.error(error);
-      return false;
     }
   };
-
-  const muteAudio = (state: boolean = false) => {
-    return new Promise((resolve) => {
-      const callAudioTracks = hostCallStream.current?.getAudioTracks();
-      if (callAudioTracks && callAudioTracks.length > 0) {
-        for (let track of callAudioTracks) {
-          track.enabled = state;
-        }
-        resolve(true);
-      }
-    });
-  };
+  const endCall = () => {};
 
   const handleMute = () => {
     console.log("muting");
     setIsMuted(true);
-    muteAudio(true);
+    // endCall();
+    const maybeCallStream = myTotalStreamRef.current?.getTrackById(
+      callId.current
+    );
+    if (maybeCallStream) maybeCallStream.enabled = false;
   };
 
   const handleUnMute = () => {
     console.log("un muting");
-    setIsMuted(false);
 
-    if (!hasStartedCalling) {
-      startCall();
-    } else {
-      muteAudio(true);
-    }
+    setIsMuted(false);
+    if (!hasStartedCalling) startCall();
+    const maybeCallStream = myTotalStreamRef.current?.getTrackById(
+      callId.current
+    );
+    if (maybeCallStream) maybeCallStream.enabled = true;
   };
 
   const handleCancelCall = () => {
-    stopStream(hostCallStream.current);
     clearEveryThing(() => {
       router.push("/");
     });
   };
-
-  useUnmount(() => {
-    console.log("unmounting react use");
-    hideNotification(room_notification_id);
-    socket?.emit("logging-out", { roomId });
-  });
+  const friendsVideoEl = useMemo(() => {
+    return Array.from(userData);
+  }, [userData]);
 
   return (
     <div className="relative flex h-screen flex-col items-center justify-center overflow-hidden  md:flex-row">
@@ -249,7 +280,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
                   <p className="bg-white py-2 text-center text-black">
                     {userId}
                   </p>
-                  <GuestVideo userId={userId} />
+                  <MyCustomVideo userId={userId} />
                 </div>
               );
             })}
@@ -258,17 +289,33 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       </div>
 
       {/* Action Bar */}
+
       <div className="absolute bottom-10 flex w-11/12 items-center justify-center space-x-10 rounded-md bg-black bg-opacity-40 py-4 px-3 text-white  backdrop-blur-xl md:w-1/2 ">
         {/* <p className="text-white">{track}</p> */}
         {/* Microphone */}
-        <ActionButtonParent>
-          <ActionMic
-            hostCallStream={hostCallStream}
-            addCallStream={addCallStream}
-          />
-        </ActionButtonParent>
+        <AspectRatio ratio={1} className="w-12">
+          {isMuted ? (
+            <Button
+              onClick={() => {
+                handleUnMute();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800 text-red-500"
+            >
+              <IconMicrophoneOff />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                handleMute();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800 text-green-500"
+            >
+              <IconMicrophone />
+            </Button>
+          )}
+        </AspectRatio>
         {/* Monitor */}
-        <ActionButtonParent>
+        <AspectRatio ratio={1} className="w-12">
           {isSharing ? (
             <Button
               onClick={() => {
@@ -288,7 +335,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
               <IconScreenShare aria-label="screen-share" />
             </Button>
           )}
-        </ActionButtonParent>
+        </AspectRatio>
         {/* Chat Box */}
         <AspectRatio ratio={1} className="w-12">
           <Button

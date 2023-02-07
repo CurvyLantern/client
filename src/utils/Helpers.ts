@@ -72,7 +72,7 @@ const DestroyPeer = (peer?: Peer.Instance) => {
   }
 };
 
-const removeStream = (stream: MediaStream | null) => {
+const stopStream = (stream: MediaStream | null) => {
   if (!stream) return;
   stream.getTracks().forEach((track) => {
     track.stop();
@@ -114,7 +114,7 @@ const createRoomId = async (
 
 export {
   initSocket,
-  removeStream,
+  stopStream,
   createPeer,
   createRoomId,
   DestroyPeer,

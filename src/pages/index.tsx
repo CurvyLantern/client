@@ -17,7 +17,7 @@ import {
   doc,
   Timestamp,
 } from "firebase/firestore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createRoomId } from "@/utils/Helpers";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
@@ -141,6 +141,11 @@ const IndexPage = () => {
   const theme = useMantineTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    let constraints = window.navigator.mediaDevices.getSupportedConstraints();
+    console.log({ constraints });
+  }, []);
   return (
     <div className={classes.wrapper}>
       <Container size={700} className={classes.inner}>

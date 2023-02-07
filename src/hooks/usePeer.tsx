@@ -1,4 +1,5 @@
-import { useMainStore } from "@/store/BaseStore";
+import { usePeerStore } from "@/store/PeerStore";
+import { MaybeStream } from "@/types";
 import { createPeer } from "@/utils/Helpers";
 import {
   hideNotification,
@@ -7,44 +8,34 @@ import {
 } from "@mantine/notifications";
 import { useEffect, useRef } from "react";
 import SimplePeer from "simple-peer";
-type PeerMap = Map<
-  string,
-  {
-    used: boolean;
-    peer: SimplePeer.Instance | null;
-    remoteStream: MediaStream | null;
-  }
->;
 
 const debug = (val: any, num: number) => {
   console.log({ num, val });
 };
 
 let room_noti_id = "room-notification";
-const useSharing = (roomId: string) => {
+const usePeer = (roomId: string) => {
   // const [track, setTrack] = useState(0);
   // const peerMapRef = useRef<PeerMap>(new Map());
   // const { socket, userId } = useContext(SocketContext);
 
-  const peerMap = useRef<PeerMap>(new Map());
-  const myTotalStreamRef = useRef<MediaStream | null>(null);
-
-  const userId = useMainStore((state) => state.userId);
-  const socket = useMainStore((state) => state.socket);
-  const userData = useMainStore((state) => state.userData);
-  const setUserData = useMainStore((state) => state.setUserData);
-  const mergeUserData = useMainStore((state) => state.mergeUserData);
-  const clearUser = useMainStore((state) => state.clearUser);
-  const clearAllUser = useMainStore((state) => state.clearAllUser);
+  const userId = usePeerStore((state) => state.userId);
+  const socket = usePeerStore((state) => state.socket);
+  const peerData = usePeerStore((state) => state.peerData);
+  const initPeerData = usePeerStore((state) => state.initPeerData);
+  const clearUser = usePeerStore((state) => state.clearUser);
+  const clearAllUser = usePeerStore((state) => state.clearAllUser);
   const destroyPeerFromMap = (id: string, msg?: string) => {
-    let peer = peerMap.current.get(id)?.peer;
+    let peer = peerData.get(id)?.peer;
     peer?.removeAllListeners();
     peer?.destroy();
-    let deleted = peerMap.current.delete(id);
+    let deleted = clearUser(id);
     if (deleted) {
       console.log("deletion success");
     }
   };
+  /* transient updates by zustand it makes this so simple */
+  const peerDataRef = useRef(usePeerStore.getState().peerData);
 
   const createNewPeer = ({
     myUserId,
@@ -60,10 +51,7 @@ const useSharing = (roomId: string) => {
     initiator: boolean;
   }) => {
     if (!socket) return;
-    if (peerMap.current.has(forWhomId)) {
-      debug("destroying peer 2", 1);
-      destroyPeerFromMap(forWhomId);
-    }
+    if (peerDataRef.current.has(forWhomId)) return;
     let peer: SimplePeer.Instance;
 
     if (initiator) {
@@ -77,12 +65,7 @@ const useSharing = (roomId: string) => {
 
     if (peer) {
       console.log(stream, "given one");
-      console.log("hello hello");
-      peerMap.current.set(forWhomId, {
-        used: false,
-        peer,
-        remoteStream: null,
-      });
+      initPeerData(forWhomId, peer, null);
 
       peer.on("signal", (data) => {
         console.log("receiving signal ", initiator);
@@ -95,7 +78,7 @@ const useSharing = (roomId: string) => {
         });
       });
       peer.on("stream", (remoteStream) => {
-        const el = userDataRef.current.get(forWhomId);
+        const el = peerDataRef.current.get(forWhomId)?.videoEl;
         console.log("received stream", remoteStream, forWhomId, el);
         if (el) {
           el.srcObject = remoteStream;
@@ -103,9 +86,9 @@ const useSharing = (roomId: string) => {
           el.onloadedmetadata = (event) => {
             console.log(event, "loaded meta data");
             el.play();
+            el.muted = false;
           };
         } else {
-          console.log(userDataRef.current, "what now");
           console.log("no element");
         }
       });
@@ -127,13 +110,10 @@ const useSharing = (roomId: string) => {
     }
   };
 
-  /* transient updates by zustand it makes this so simple */
-  const userDataRef = useRef(useMainStore.getState().userData);
   useEffect(() => {
     if (!socket) return;
 
-    // Transient settings
-    useMainStore.subscribe((state) => (userDataRef.current = state.userData));
+    usePeerStore.subscribe((state) => (peerDataRef.current = state.peerData));
 
     /// connect socket
     if (!socket.connected) {
@@ -174,12 +154,11 @@ const useSharing = (roomId: string) => {
         whoJoinedSockId: string;
       }) => {
         console.log("friend joined - ", whoJoinedId);
-        setUserData(whoJoinedId, null);
         createNewPeer({
           myUserId: userId,
           forWhomId: whoJoinedId,
           forWhomSocketId: whoJoinedSockId,
-          stream: myTotalStreamRef.current,
+          stream: null,
           initiator: true,
         });
       }
@@ -195,12 +174,10 @@ const useSharing = (roomId: string) => {
         fromWhomSockId: string;
         fromWhomId: string;
       }) => {
-        mergeUserData(fromWhomId);
-
         createNewPeer({
           forWhomId: fromWhomId,
           forWhomSocketId: fromWhomSockId,
-          stream: myTotalStreamRef.current,
+          stream: null,
           initiator: false,
           myUserId: userId,
         });
@@ -215,20 +192,14 @@ const useSharing = (roomId: string) => {
       signal: any;
     }) => {
       console.log("receiving signal from friend - ", fromWhomId);
-      peerMap.current.get(fromWhomId)?.peer?.signal(signal);
+      peerDataRef.current.get(fromWhomId)?.peer?.signal(signal);
     };
     socket.on("receive-signal-from-friend", handler);
 
     // clean up when friend logs out
     const cleanUpHandler = ({ who }: { who: string }) => {
       debug(`someone logged out - ${who}`, 20);
-
-      if (peerMap.current.has(who)) {
-        destroyPeerFromMap(who, "logged out cleaner destroy");
-        peerMap.current.delete(who);
-      }
-
-      clearUser(who);
+      destroyPeerFromMap(who, "logged out cleaner destroy");
     };
     socket.on("friend-logged-out", cleanUpHandler);
 
@@ -238,37 +209,37 @@ const useSharing = (roomId: string) => {
       socket?.emit("logging-out", { roomId });
     };
   }, []);
-  const createNewInitiatorPeer = ({
-    forWhomId,
-    stream,
-  }: {
-    forWhomId: string;
-    stream: MediaStream | null;
-  }) => {
-    createNewPeer({
-      myUserId: userId,
-      stream,
-      forWhomId: forWhomId,
-      forWhomSocketId: null,
-      initiator: true,
-    });
-  };
-
   const clearEveryThing = (cb: () => void) => {
-    peerMap.current.forEach((obj) => {
-      obj.peer?.destroy();
-    });
-    peerMap.current.clear();
     clearAllUser();
     cb();
   };
 
-  return [
-    myTotalStreamRef,
-    createNewInitiatorPeer,
+  const addCallStream = (stream: MaybeStream) => {
+    if (!stream) throw new Error(" no call stream povided ");
+    peerData.forEach((obj) => {
+      obj.peer?.addStream(stream);
+    });
+  };
+  const addScreenStream = (stream: MaybeStream) => {
+    if (!stream) throw new Error(" no Screen stream povided ");
+
+    peerData.forEach((obj) => {
+      obj.peer?.addStream(stream);
+    });
+  };
+  const removeStream = (stream: MaybeStream, streamId?: string) => {
+    if (!stream) throw new Error(" no Screen stream povided ");
+    peerData.forEach((obj) => {
+      obj.peer?.removeStream(stream);
+    });
+  };
+
+  return {
     clearEveryThing,
-    peerMap,
-  ] as const;
+    addCallStream,
+    addScreenStream,
+    removeStream,
+  } as const;
 };
 
-export default useSharing;
+export { usePeer };
