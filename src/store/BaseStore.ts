@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { devtools } from "zustand/middleware";
 
 type MaybeVideoEl = HTMLVideoElement | null;
-type UserVideoMapType = Map<string, MaybeVideoEl>;
 
 interface MainState {
   userId: string;

@@ -3,7 +3,7 @@ import { usePeerStore } from "@/store/PeerStore";
 import { useEffect, useState } from "react";
 
 const Demo = () => {
-  const userId = usePeerStore((state) => state.userId);
+  const userId = useMainStore((state) => state.userId);
 
   const [tempState, setTempState] = useState("");
 
