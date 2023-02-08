@@ -46,22 +46,22 @@ export default function App(props: AppProps) {
       </Head>
       {/* <UserDataProvider>
         <SocketProvider> */}
-          <MantineProvider
-            withGlobalStyles
-            withNormalizeCSS
-            theme={{
-              /** Put your mantine theme override here */
-              colorScheme: "dark",
-            }}
-          >
-            <NotificationsProvider position="top-center" zIndex={99999}>
-              <div>
-                <Demo />
-                <Component {...pageProps} />
-              </div>
-            </NotificationsProvider>
-          </MantineProvider>
-        {/* </SocketProvider>
+      <MantineProvider
+        withGlobalStyles
+        withNormalizeCSS
+        theme={{
+          /** Put your mantine theme override here */
+          colorScheme: "dark",
+        }}
+      >
+        <NotificationsProvider position="top-center" zIndex={99999}>
+          <div>
+            {process.env.NODE_ENV === "development" ? <Demo /> : null}
+            <Component {...pageProps} />
+          </div>
+        </NotificationsProvider>
+      </MantineProvider>
+      {/* </SocketProvider>
       </UserDataProvider> */}
     </>
   );
