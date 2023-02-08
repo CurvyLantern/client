@@ -30,6 +30,8 @@ const usePeer = (roomId: string) => {
   /* transient updates by zustand it makes this so simple */
   const peerDataRef = useRef(usePeerStore.getState().peerData);
 
+  const myCurrentMediaStreamRef = useRef<MaybeStream>(null);
+
   useEffect(() => {
     console.log("I should run only once");
     if (!socket) return;
@@ -164,7 +166,7 @@ const usePeer = (roomId: string) => {
           myUserId: userId,
           forWhomId: whoJoinedId,
           forWhomSocketId: whoJoinedSockId,
-          stream: null,
+          stream: myCurrentMediaStreamRef.current,
           initiator: true,
         });
       }
@@ -248,6 +250,7 @@ const usePeer = (roomId: string) => {
     addCallStream,
     addScreenStream,
     removeStream,
+    myCurrentMediaStreamRef,
   } as const;
 };
 

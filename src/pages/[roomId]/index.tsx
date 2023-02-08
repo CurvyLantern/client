@@ -59,6 +59,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
     addCallStream,
     addScreenStream,
     removeStream: removePeerStream,
+    myCurrentMediaStreamRef,
   } = usePeer(roomId);
 
   const [isSharing, setIsSharing] = useState(false);
@@ -86,6 +87,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       stopScreenShare
     );
     if (stream) {
+      myCurrentMediaStreamRef.current = stream;
       // for cancelling later
       hostScreenStream.current = stream;
 
