@@ -195,7 +195,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   return (
     <>
       <div className="relative flex h-screen flex-col items-center  overflow-hidden  ">
-        <div className="grid w-full grid-cols-3 gap-5 p-5">
+        <div className="grid w-full grid-cols-1 gap-5 p-5 md:grid-cols-2 lg:grid-cols-3">
           <CommonUserMedia ref={hostVideoRef} />
           {friendsVideoEl.map(([userId]) => {
             return <GuestVideo userId={userId} key={userId} />;
