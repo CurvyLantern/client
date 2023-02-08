@@ -1,3 +1,4 @@
+import { useMainStore } from "@/store/BaseStore";
 import { usePeerStore } from "@/store/PeerStore";
 import { MaybeStream } from "@/types";
 import { createPeer } from "@/utils/Helpers";
@@ -19,8 +20,8 @@ const usePeer = (roomId: string) => {
   // const peerMapRef = useRef<PeerMap>(new Map());
   // const { socket, userId } = useContext(SocketContext);
 
-  const userId = usePeerStore((state) => state.userId);
-  const socket = usePeerStore((state) => state.socket);
+  const userId = useMainStore((state) => state.userId);
+  const socket = useMainStore((state) => state.socket);
   const peerData = usePeerStore((state) => state.peerData);
   const initPeerData = usePeerStore((state) => state.initPeerData);
   const clearUser = usePeerStore((state) => state.clearUser);
@@ -29,9 +30,8 @@ const usePeer = (roomId: string) => {
   /* transient updates by zustand it makes this so simple */
   const peerDataRef = useRef(usePeerStore.getState().peerData);
 
- 
-
   useEffect(() => {
+    console.log("I should run only once");
     if (!socket) return;
 
     usePeerStore.subscribe((state) => (peerDataRef.current = state.peerData));

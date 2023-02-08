@@ -2,7 +2,9 @@ import { GuestVideo } from "@/components/CustomVideo";
 import { ActionButtonParent } from "@/components/action/ActionButtonParent";
 import { ActionMic } from "@/components/action/ActionMic";
 import { CommonUserMedia } from "@/components/video/CommonVideo";
+import { useChat } from "@/hooks/useChat";
 import { usePeer } from "@/hooks/usePeer";
+import { useMainStore } from "@/store/BaseStore";
 import { useChatStore } from "@/store/ChatStore";
 import { usePeerStore } from "@/store/PeerStore";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
@@ -64,7 +66,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasStartedCalling, setHasStartedCalling] = useState(false);
 
-  const socket = usePeerStore((state) => state.socket);
+  const socket = useMainStore((state) => state.socket);
   const peerData = usePeerStore((state) => state.peerData);
 
   const hostScreenStream = useRef<MediaStream | null>(null);
@@ -186,15 +188,13 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   });
 
   const chatMessages = useChatStore((state) => state.messages);
-  const enterChat = useChatStore((state) => state.enterChat);
+  const { sendMessage } = useChat(roomId);
   const [chatInput, setChatInput] = useState("");
-  const messageBoxRef = useRef<HTMLDivElement>(null);
-  const {} = useMeasure();
+  const [messageBoxRef, { height: messageBoxHeight }] =
+    useMeasure<HTMLDivElement>();
   return (
     <>
       <div className="relative flex h-screen flex-col items-center  overflow-hidden  ">
-        {/* Drawer */}
-
         <div className="grid w-full grid-cols-3 gap-5 p-5">
           <CommonUserMedia ref={hostVideoRef} />
           {friendsVideoEl.map(([userId]) => {
@@ -298,7 +298,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       <Drawer
         overlayOpacity={0.55}
         overlayBlur={3}
-        withCloseButton={false}
+        withCloseButton={true}
         position="right"
         opened={isChatOpen}
         onClose={() => setIsChatOpen(false)}
@@ -307,6 +307,7 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
         styles={{
           drawer: {
             display: "flex",
+            flexDirection: "column",
           },
           body: {
             flex: 1,
@@ -315,21 +316,23 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
       >
         {/* Drawer content */}
         <div className="chat_box flex h-full flex-col gap-5">
-          <div className="flex-1 bg-red-400" ref={messageBoxRef}>
+          <div className="flex-1" ref={messageBoxRef}>
             <ScrollArea
               style={{
-                height: "100%",
+                height: messageBoxHeight,
               }}
             >
-              {chatMessages.map((chat) => {
-                return (
-                  <div key={chat.id}>
-                    <div className="inline-flex max-w-[50%] flex-1  break-all rounded-r-xl bg-slate-600 px-3 py-2 ">
-                      {chat.message}
+              <div className="mt-auto flex h-full flex-col gap-4">
+                {chatMessages.map((chat) => {
+                  return (
+                    <div key={chat.id}>
+                      <div className="inline-flex max-w-[50%] flex-1  break-all rounded-r-xl bg-slate-600 px-3 py-2 ">
+                        {chat.message}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </ScrollArea>
           </div>
 
@@ -348,9 +351,9 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
             />
             <ActionIcon
               onClick={() => {
-                enterChat({
+                sendMessage({
                   message: chatInput,
-                  time: Date(),
+                  time: new Date().toISOString(),
                   username: "nasim",
                 });
                 setChatInput("");

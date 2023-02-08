@@ -13,8 +13,6 @@ type PeerDataType = {
 };
 type PeerMapType = Map<string, PeerDataType>;
 interface MainState {
-  userId: string;
-  socket: ReturnType<typeof io> | null;
   peerData: PeerMapType;
 }
 type Action = {
@@ -26,8 +24,6 @@ type Action = {
 };
 const userId = nanoid();
 const usePeerStore = create<MainState & Action>()((set, get) => ({
-  userId,
-  socket: initSocket(userId),
   peerData: new Map(),
   initPeerData: (id, peer, el) => {
     set((state) => {
