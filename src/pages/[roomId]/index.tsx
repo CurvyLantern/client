@@ -1,7 +1,9 @@
 import { GuestVideo } from "@/components/CustomVideo";
 import { ActionButtonParent } from "@/components/action/ActionButtonParent";
 import { ActionMic } from "@/components/action/ActionMic";
+import { CommonUserMedia } from "@/components/video/CommonVideo";
 import { usePeer } from "@/hooks/usePeer";
+import { useChatStore } from "@/store/ChatStore";
 import { usePeerStore } from "@/store/PeerStore";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
 import { stopStream } from "@/utils/Helpers";
@@ -12,6 +14,7 @@ import {
   Button,
   Drawer,
   Popover,
+  ScrollArea,
   Skeleton,
   TextInput,
 } from "@mantine/core";
@@ -30,8 +33,7 @@ import {
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { useMemo, useRef, useState } from "react";
-import { useUnmount } from "react-use";
-
+import { useUnmount, useMeasure } from "react-use";
 const room_notification_id = "room-notification";
 
 const getShareAbleLinkByRoomId = (host: string, roomId: string) => {
@@ -183,10 +185,116 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
     socket?.emit("logging-out", { roomId });
   });
 
+  const chatMessages = useChatStore((state) => state.messages);
+  const enterChat = useChatStore((state) => state.enterChat);
+  const [chatInput, setChatInput] = useState("");
+  const messageBoxRef = useRef<HTMLDivElement>(null);
+  const {} = useMeasure();
   return (
-    <div className="relative flex h-screen flex-col items-center justify-center overflow-hidden  md:flex-row">
-      {/* Drawer */}
+    <>
+      <div className="relative flex h-screen flex-col items-center  overflow-hidden  ">
+        {/* Drawer */}
 
+        <div className="grid w-full grid-cols-3 gap-5 p-5">
+          <CommonUserMedia ref={hostVideoRef} />
+          {friendsVideoEl.map(([userId]) => {
+            return <GuestVideo userId={userId} key={userId} />;
+          })}
+        </div>
+
+        {/* Action Bar */}
+        <div className="absolute bottom-10 flex w-11/12 items-center justify-center space-x-10 rounded-md bg-black bg-opacity-40 py-4 px-3 text-white  backdrop-blur-xl md:w-1/2 ">
+          {/* <p className="text-white">{track}</p> */}
+          {/* Microphone */}
+          <ActionButtonParent>
+            <ActionMic
+              hostCallStream={hostCallStream}
+              addCallStream={addCallStream}
+            />
+          </ActionButtonParent>
+          {/* Monitor */}
+          <ActionButtonParent>
+            {isSharing ? (
+              <Button
+                onClick={() => {
+                  stopScreenShare();
+                }}
+                className="flex items-center justify-center rounded-full bg-red-600 text-white"
+              >
+                <IconScreenShareOff aria-label="screen-share" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  startScreenShare();
+                }}
+                className="flex items-center justify-center rounded-full bg-neutral-800"
+              >
+                <IconScreenShare aria-label="screen-share" />
+              </Button>
+            )}
+          </ActionButtonParent>
+          {/* Chat Box */}
+          <AspectRatio ratio={1} className="w-12">
+            <Button
+              onClick={() => {
+                handleChat();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800 text-blue-500"
+            >
+              <IconMessage />
+            </Button>
+          </AspectRatio>
+          {/* Call End */}
+          <AspectRatio ratio={1} className="w-12">
+            <Button
+              onClick={() => {
+                handleCancelCall();
+              }}
+              className="flex items-center justify-center rounded-full bg-neutral-800 text-red-500"
+            >
+              <IconPhoneOff />
+            </Button>
+          </AspectRatio>
+
+          <div>
+            <Popover
+              middlewares={{ flip: true, shift: true, inline: true }}
+              trapFocus
+              position="top"
+              withArrow
+              shadow="md"
+            >
+              <Popover.Target>
+                {/* <Button>Toggle popover</Button> */}
+                <Button variant="subtle" p={0} className="">
+                  <IconDotsVertical />
+                </Button>
+              </Popover.Target>
+              <Popover.Dropdown
+                sx={(theme) => ({
+                  background:
+                    theme.colorScheme === "dark"
+                      ? theme.colors.dark[7]
+                      : theme.white,
+                })}
+              >
+                <p>{shareLink}</p>
+                <Button
+                  fullWidth
+                  compact
+                  color={clipboard.copied ? "green" : "blue"}
+                  onClick={() => {
+                    clipboard.copy(shareLink);
+                  }}
+                >
+                  {clipboard.copied ? "copied" : "copy"}
+                </Button>
+              </Popover.Dropdown>
+            </Popover>
+          </div>
+        </div>
+      </div>
       <Drawer
         overlayOpacity={0.55}
         overlayBlur={3}
@@ -206,10 +314,29 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
         }}
       >
         {/* Drawer content */}
-        <div className="flex h-full flex-col gap-5">
-          <div className="flex-1 bg-green-600"></div>
+        <div className="chat_box flex h-full flex-col gap-5">
+          <div className="flex-1 bg-red-400" ref={messageBoxRef}>
+            <ScrollArea
+              style={{
+                height: "100%",
+              }}
+            >
+              {chatMessages.map((chat) => {
+                return (
+                  <div key={chat.id}>
+                    <div className="inline-flex max-w-[50%] flex-1  break-all rounded-r-xl bg-slate-600 px-3 py-2 ">
+                      {chat.message}
+                    </div>
+                  </div>
+                );
+              })}
+            </ScrollArea>
+          </div>
+
           <div className="flex gap-5">
             <TextInput
+              value={chatInput}
+              onChange={(evt) => setChatInput(evt.currentTarget.value)}
               placeholder="let's watch sholay :D"
               radius="xl"
               size="md"
@@ -219,137 +346,26 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
                 },
               }}
             />
-            <ActionIcon color="indigo" size="xl" radius="xl" variant="filled">
+            <ActionIcon
+              onClick={() => {
+                enterChat({
+                  message: chatInput,
+                  time: Date(),
+                  username: "nasim",
+                });
+                setChatInput("");
+              }}
+              color="indigo"
+              size="xl"
+              radius="xl"
+              variant="filled"
+            >
               <IconPlane />
             </ActionIcon>
           </div>
         </div>
       </Drawer>
-
-      <div className="absolute flex w-full flex-1 flex-col items-center gap-3 px-10 md:flex-row ">
-        <AspectRatio ratio={16 / 9} className="w-full flex-1">
-          <Skeleton animate></Skeleton>
-          <video
-            muted
-            autoPlay
-            playsInline
-            placeholder="No video"
-            ref={hostVideoRef}
-          ></video>
-        </AspectRatio>
-        <div className="max-w-full flex-1 overflow-hidden">
-          <p className="text-center text-xl">Friends</p>
-          <div className="flex items-center gap-3 overflow-x-auto p-3 md:max-h-[80%] md:flex-col md:overflow-y-auto md:overflow-x-visible">
-            {friendsVideoEl.map(([userId]) => {
-              return (
-                <div
-                  key={userId}
-                  className="flex h-auto w-60 shrink-0 flex-col items-center justify-center  bg-neutral-600"
-                >
-                  <p className="bg-white py-2 text-center text-black">
-                    {userId}
-                  </p>
-                  <GuestVideo userId={userId} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Action Bar */}
-      <div className="absolute bottom-10 flex w-11/12 items-center justify-center space-x-10 rounded-md bg-black bg-opacity-40 py-4 px-3 text-white  backdrop-blur-xl md:w-1/2 ">
-        {/* <p className="text-white">{track}</p> */}
-        {/* Microphone */}
-        <ActionButtonParent>
-          <ActionMic
-            hostCallStream={hostCallStream}
-            addCallStream={addCallStream}
-          />
-        </ActionButtonParent>
-        {/* Monitor */}
-        <ActionButtonParent>
-          {isSharing ? (
-            <Button
-              onClick={() => {
-                stopScreenShare();
-              }}
-              className="flex items-center justify-center rounded-full bg-red-600 text-white"
-            >
-              <IconScreenShareOff aria-label="screen-share" />
-            </Button>
-          ) : (
-            <Button
-              onClick={() => {
-                startScreenShare();
-              }}
-              className="flex items-center justify-center rounded-full bg-neutral-800"
-            >
-              <IconScreenShare aria-label="screen-share" />
-            </Button>
-          )}
-        </ActionButtonParent>
-        {/* Chat Box */}
-        <AspectRatio ratio={1} className="w-12">
-          <Button
-            onClick={() => {
-              handleChat();
-            }}
-            className="flex items-center justify-center rounded-full bg-neutral-800 text-blue-500"
-          >
-            <IconMessage />
-          </Button>
-        </AspectRatio>
-        {/* Call End */}
-        <AspectRatio ratio={1} className="w-12">
-          <Button
-            onClick={() => {
-              handleCancelCall();
-            }}
-            className="flex items-center justify-center rounded-full bg-neutral-800 text-red-500"
-          >
-            <IconPhoneOff />
-          </Button>
-        </AspectRatio>
-
-        <div>
-          <Popover
-            middlewares={{ flip: true, shift: true, inline: true }}
-            trapFocus
-            position="top"
-            withArrow
-            shadow="md"
-          >
-            <Popover.Target>
-              {/* <Button>Toggle popover</Button> */}
-              <Button variant="subtle" p={0} className="">
-                <IconDotsVertical />
-              </Button>
-            </Popover.Target>
-            <Popover.Dropdown
-              sx={(theme) => ({
-                background:
-                  theme.colorScheme === "dark"
-                    ? theme.colors.dark[7]
-                    : theme.white,
-              })}
-            >
-              <p>{shareLink}</p>
-              <Button
-                fullWidth
-                compact
-                color={clipboard.copied ? "green" : "blue"}
-                onClick={() => {
-                  clipboard.copy(shareLink);
-                }}
-              >
-                {clipboard.copied ? "copied" : "copy"}
-              </Button>
-            </Popover.Dropdown>
-          </Popover>
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 

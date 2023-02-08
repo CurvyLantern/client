@@ -10,3 +10,13 @@ type PeerDataType = {
   used?: boolean;
 };
 type PeerMapType = Map<string, PeerDataType>;
+
+
+// chat types
+type ChatType = {
+  username:string,
+  message:string,
+  time:string
+}
+
+type ChatArray = Array<ChatType & {id: string}>

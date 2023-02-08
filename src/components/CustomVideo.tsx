@@ -1,6 +1,16 @@
+import { CommonUserMedia } from "@/components/video/CommonVideo";
 import { useMainStore } from "@/store/BaseStore";
 import { usePeerStore } from "@/store/PeerStore";
-import { Dispatch, SetStateAction, useEffect, useMemo, useRef } from "react";
+import { AspectRatio, Skeleton } from "@mantine/core";
+import {
+  Dispatch,
+  SetStateAction,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useUpdateEffect } from "react-use";
 
 const MyCustomVideo = ({
@@ -10,7 +20,9 @@ const MyCustomVideo = ({
   userId: string;
 }) => {
   const ref = useRef<HTMLVideoElement>(null);
-  const setUserData = useMainStore((state) => state.setUserData);
+  const setUserData = useMainStore(
+    useCallback((state) => state.setUserData, [])
+  );
 
   useEffect(() => {
     if (!ref.current) return;
@@ -18,7 +30,7 @@ const MyCustomVideo = ({
     ref.current.defaultMuted = true;
     ref.current.muted = true;
     setUserData(userId, ref.current);
-  }, []);
+  }, [userId, setUserData]);
 
   return (
     <video
@@ -39,7 +51,9 @@ const GuestVideo = ({
   userId: string;
 }) => {
   const ref = useRef<HTMLVideoElement>(null);
-  const setVideoElToUser = usePeerStore((state) => state.setVideoElToUser);
+  const setVideoElToUser = usePeerStore(
+    useCallback((state) => state.setVideoElToUser, [])
+  );
 
   useEffect(() => {
     if (!ref.current) return;
@@ -47,16 +61,9 @@ const GuestVideo = ({
     ref.current.defaultMuted = true;
     ref.current.muted = true;
     setVideoElToUser(userId, ref.current);
-  }, []);
+  }, [setVideoElToUser, userId]);
 
-  return (
-    <video
-      playsInline
-      controls
-      ref={ref}
-      className="block h-full w-full object-contain"
-    ></video>
-  );
+  return <CommonUserMedia ref={ref} />;
 };
 
 export { MyCustomVideo, GuestVideo };

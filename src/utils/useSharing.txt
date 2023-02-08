@@ -36,6 +36,7 @@ const useSharing = (roomId: string) => {
   const mergeUserData = useMainStore((state) => state.mergeUserData);
   const clearUser = useMainStore((state) => state.clearUser);
   const clearAllUser = useMainStore((state) => state.clearAllUser);
+  
   const destroyPeerFromMap = (id: string, msg?: string) => {
     let peer = peerMap.current.get(id)?.peer;
     peer?.removeAllListeners();
@@ -60,6 +61,7 @@ const useSharing = (roomId: string) => {
     initiator: boolean;
   }) => {
     if (!socket) return;
+
     if (peerMap.current.has(forWhomId)) {
       debug("destroying peer 2", 1);
       destroyPeerFromMap(forWhomId);
@@ -237,7 +239,7 @@ const useSharing = (roomId: string) => {
       hideNotification(room_noti_id);
       socket?.emit("logging-out", { roomId });
     };
-  }, []);
+  }, [roomId, socket, userId]);
   const createNewInitiatorPeer = ({
     forWhomId,
     stream,

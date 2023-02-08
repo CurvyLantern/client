@@ -25,95 +25,101 @@ const usePeer = (roomId: string) => {
   const initPeerData = usePeerStore((state) => state.initPeerData);
   const clearUser = usePeerStore((state) => state.clearUser);
   const clearAllUser = usePeerStore((state) => state.clearAllUser);
-  const destroyPeerFromMap = (id: string, msg?: string) => {
-    let peer = peerData.get(id)?.peer;
-    peer?.removeAllListeners();
-    peer?.destroy();
-    let deleted = clearUser(id);
-    if (deleted) {
-      console.log("deletion success");
-    }
-  };
+
   /* transient updates by zustand it makes this so simple */
   const peerDataRef = useRef(usePeerStore.getState().peerData);
 
-  const createNewPeer = ({
-    myUserId,
-    forWhomId,
-    forWhomSocketId,
-    stream,
-    initiator,
-  }: {
-    myUserId: string;
-    forWhomId: string;
-    forWhomSocketId: string | null;
-    stream: MediaStream | null;
-    initiator: boolean;
-  }) => {
-    if (!socket) return;
-    if (peerDataRef.current.has(forWhomId)) return;
-    let peer: SimplePeer.Instance;
-
-    if (initiator) {
-      socket.emit("create-receive-peer", {
-        toWhomId: forWhomId,
-        toWhomSockId: forWhomSocketId,
-        roomId,
-      });
-    }
-    peer = createPeer(initiator, stream);
-
-    if (peer) {
-      console.log(stream, "given one");
-      initPeerData(forWhomId, peer, null);
-
-      peer.on("signal", (data) => {
-        console.log("receiving signal ", initiator);
-        console.log("sending signal to - ", forWhomId);
-        socket.emit("send-signal-to-friend", {
-          toWhomId: forWhomId,
-          toWhomSockId: forWhomSocketId, // can be null
-          signal: data,
-          roomId,
-        });
-      });
-      peer.on("stream", (remoteStream) => {
-        const el = peerDataRef.current.get(forWhomId)?.videoEl;
-        console.log("received stream", remoteStream, forWhomId, el);
-        if (el) {
-          el.srcObject = remoteStream;
-          console.log({ el, remoteStream });
-          el.onloadedmetadata = (event) => {
-            console.log(event, "loaded meta data");
-            el.play();
-            el.muted = false;
-          };
-        } else {
-          console.log("no element");
-        }
-      });
-
-      peer.on("track", (track, stream) => {
-        console.log("hello there 2");
-      });
-
-      peer.on("close", () => {
-        // destroyPeer(peer, from);
-        console.log("peer closed");
-      });
-
-      peer.on("error", (error) => {
-        console.error(error);
-
-        destroyPeerFromMap(forWhomId, "now destroying receive on event error");
-      });
-    }
-  };
+ 
 
   useEffect(() => {
     if (!socket) return;
 
     usePeerStore.subscribe((state) => (peerDataRef.current = state.peerData));
+
+    const createNewPeer = ({
+      myUserId,
+      forWhomId,
+      forWhomSocketId,
+      stream,
+      initiator,
+    }: {
+      myUserId: string;
+      forWhomId: string;
+      forWhomSocketId: string | null;
+      stream: MediaStream | null;
+      initiator: boolean;
+    }) => {
+      if (!socket) return;
+      if (peerDataRef.current.has(forWhomId)) return;
+      let peer: SimplePeer.Instance;
+
+      if (initiator) {
+        socket.emit("create-receive-peer", {
+          toWhomId: forWhomId,
+          toWhomSockId: forWhomSocketId,
+          roomId,
+        });
+      }
+      peer = createPeer(initiator, stream);
+
+      if (peer) {
+        console.log(stream, "given one");
+        initPeerData(forWhomId, peer, null);
+
+        peer.on("signal", (data) => {
+          console.log("receiving signal ", initiator);
+          console.log("sending signal to - ", forWhomId);
+          socket.emit("send-signal-to-friend", {
+            toWhomId: forWhomId,
+            toWhomSockId: forWhomSocketId, // can be null
+            signal: data,
+            roomId,
+          });
+        });
+        peer.on("stream", (remoteStream) => {
+          const el = peerDataRef.current.get(forWhomId)?.videoEl;
+          console.log("received stream", remoteStream, forWhomId, el);
+          if (el) {
+            el.srcObject = remoteStream;
+            console.log({ el, remoteStream });
+            el.onloadedmetadata = (event) => {
+              console.log(event, "loaded meta data");
+              el.play();
+              el.muted = false;
+            };
+          } else {
+            console.log("no element");
+          }
+        });
+
+        peer.on("track", (track, stream) => {
+          console.log("hello there 2");
+        });
+
+        peer.on("close", () => {
+          // destroyPeer(peer, from);
+          console.log("peer closed");
+        });
+
+        peer.on("error", (error) => {
+          console.error(error);
+
+          destroyPeerFromMap(
+            forWhomId,
+            "now destroying receive on event error"
+          );
+        });
+      }
+    };
+    const destroyPeerFromMap = (id: string, msg?: string) => {
+      let peer = peerDataRef.current.get(id)?.peer;
+      peer?.removeAllListeners();
+      peer?.destroy();
+      let deleted = clearUser(id);
+      if (deleted) {
+        console.log("deletion success");
+      }
+    };
 
     /// connect socket
     if (!socket.connected) {
@@ -207,8 +213,9 @@ const usePeer = (roomId: string) => {
       console.log("unmounting react use");
       hideNotification(room_noti_id);
       socket?.emit("logging-out", { roomId });
+      socket.removeAllListeners();
     };
-  }, []);
+  }, [roomId, userId, socket]);
   const clearEveryThing = (cb: () => void) => {
     clearAllUser();
     cb();
@@ -222,6 +229,8 @@ const usePeer = (roomId: string) => {
   };
   const addScreenStream = (stream: MaybeStream) => {
     if (!stream) throw new Error(" no Screen stream povided ");
+
+    console.log(peerData);
 
     peerData.forEach((obj) => {
       obj.peer?.addStream(stream);
