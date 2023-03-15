@@ -17,11 +17,9 @@ const initSocket = (id: string) => {
   //   userId = nanoid();
   //   setCookie("userId", userId);
   // }
-
   return io(
-    process.env.NODE_ENV === "development"
-      ? "http://localhost:8000"
-      : (process.env.SOCKET_URL2 as string),
+    "https://mybackend-production.up.railway.app/",
+
     {
       transports: ["websocket"],
       autoConnect: false,
