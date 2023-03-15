@@ -34,15 +34,14 @@ import {
 } from "@tabler/icons-react";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { useMemo, useRef, useState } from "react";
-import { useUnmount, useMeasure } from "react-use";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useUnmount, useMeasure, useEffectOnce } from "react-use";
 const room_notification_id = "room-notification";
 
 const getShareAbleLinkByRoomId = (host: string, roomId: string) => {
   return `${host}/${roomId}`;
 };
 interface HostPageProps {
-  shareLink: string;
   roomId: string;
 }
 const getVideoStream = (stream?: MediaStream) => {
@@ -50,9 +49,10 @@ const getVideoStream = (stream?: MediaStream) => {
   const videoTrack = stream.getVideoTracks();
   return new MediaStream(videoTrack!);
 };
-const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
+const MovieRoomPage = ({  roomId }: HostPageProps) => {
   const clipboard = useClipboard({ timeout: 1000 });
   const router = useRouter();
+  
 
   const {
     clearEveryThing,
@@ -66,7 +66,13 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   const [isMuted, setIsMuted] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasStartedCalling, setHasStartedCalling] = useState(false);
-
+  const [shareLink, setShareLink] = useState('')
+  
+  useEffectOnce(() => {
+    setShareLink(getShareAbleLinkByRoomId(window.location.origin, roomId))
+  })
+  
+  
   const socket = useMainStore((state) => state.socket);
   const peerData = usePeerStore((state) => state.peerData);
 
@@ -194,6 +200,10 @@ const MovieRoomPage = ({ shareLink, roomId }: HostPageProps) => {
   const [chatInput, setChatInput] = useState("");
   const [messageBoxRef, { height: messageBoxHeight }] =
     useMeasure<HTMLDivElement>();
+
+  useEffect(() => {
+    console.log(window.location, "protocol");
+  }, []);
   return (
     <>
       <div className="relative flex h-screen flex-col items-center  overflow-hidden  ">
@@ -378,13 +388,17 @@ export const getServerSideProps: GetServerSideProps = async ({
   req,
   query,
 }) => {
+  //  const proto =
+  //    req.headers["x-forwarded-proto"] || req.connection.encrypted
+  //      ? "https"
+  //      : "http";
+  // let proto = req.headers.referer;
+  // console.log(proto, "test");
   const host = req.headers.host;
   const roomId = query.roomId;
 
-  const shareLink = getShareAbleLinkByRoomId(host!, roomId as string);
   return {
     props: {
-      shareLink,
       roomId,
     },
   };

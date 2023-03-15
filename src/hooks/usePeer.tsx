@@ -20,12 +20,10 @@ const usePeer = (roomId: string) => {
   // const peerMapRef = useRef<PeerMap>(new Map());
   // const { socket, userId } = useContext(SocketContext);
 
-  const userId = useMainStore((state) => state.userId);
-  const socket = useMainStore((state) => state.socket);
-  const peerData = usePeerStore((state) => state.peerData);
-  const initPeerData = usePeerStore((state) => state.initPeerData);
-  const clearUser = usePeerStore((state) => state.clearUser);
-  const clearAllUser = usePeerStore((state) => state.clearAllUser);
+  const { socket, userId } = useMainStore((state) => state);
+  const { clearAllUser, clearUser, initPeerData, peerData } = usePeerStore(
+    (state) => state
+  );
 
   /* transient updates by zustand it makes this so simple */
   const peerDataRef = useRef(usePeerStore.getState().peerData);
@@ -98,9 +96,9 @@ const usePeer = (roomId: string) => {
           console.log("hello there 2");
         });
 
-        peer.on("close", () => {
+        peer.on("close", (reason: any) => {
           // destroyPeer(peer, from);
-          console.log("peer closed");
+          console.log("peer closed", reason);
         });
 
         peer.on("error", (error) => {

@@ -21,7 +21,7 @@ const initSocket = (id: string) => {
   return io(
     process.env.NODE_ENV === "development"
       ? "http://localhost:8000"
-      : "https://rtc-backend.onrender.com/",
+      : (process.env.SOCKET_URL2 as string),
     {
       transports: ["websocket"],
       autoConnect: false,
@@ -36,14 +36,14 @@ const createPeer = (initiator: boolean = false, stream: MediaStream | null) => {
   const peer = new Peer({
     initiator,
     trickle: true,
-    iceCompleteTimeout: 5000,
     stream: stream ? stream : undefined,
     config: {
       iceServers: [...mine.iceServers],
-      iceTransportPolicy: "all",
       bundlePolicy: "balanced",
     },
   });
+
+  peer._debug = console.log;
 
   return peer;
 };

@@ -1,9 +1,9 @@
 import { Demo } from "@/components/ShowUserId";
-import '@/styles/globals.css';
-import { MantineProvider } from '@mantine/core';
+import "@/styles/globals.css";
+import { MantineProvider } from "@mantine/core";
 import { NotificationsProvider } from "@mantine/notifications";
-import { AppProps } from 'next/app';
-import Head from 'next/head';
+import { AppProps } from "next/app";
+import Head from "next/head";
 import { useRouter } from "next/router";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
@@ -12,7 +12,10 @@ import { useEffect } from "react";
 export default function App(props: AppProps) {
   const { Component, pageProps } = props;
   const router = useRouter();
-  NProgress.configure({ showSpinner: false });
+
+  useEffect(() => {
+    NProgress.configure({ showSpinner: false });
+  }, []);
 
   useEffect(() => {
     const handleStart = (url: string) => {

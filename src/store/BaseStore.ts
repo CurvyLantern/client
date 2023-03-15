@@ -9,15 +9,15 @@ type MaybeVideoEl = HTMLVideoElement | null;
 
 interface MainState {
   userId: string;
-  socket: ReturnType<typeof io> | null;
+  socket: ReturnType<typeof io>;
 }
 type Action = {};
-const userId = nanoid();
-const useMainStore = create<MainState & Action>()((set) => ({
-  userId,
-  socket: initSocket(userId),
-}));
-
-
+const useMainStore = create<MainState & Action>()((set, get) => {
+  const id = nanoid();
+  return {
+    userId: id,
+    socket: initSocket(id),
+  };
+});
 
 export { useMainStore };
