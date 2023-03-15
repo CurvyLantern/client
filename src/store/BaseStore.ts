@@ -12,11 +12,12 @@ interface MainState {
   socket: ReturnType<typeof io>;
 }
 type Action = {};
+const id = nanoid();
+const socket = initSocket(id);
 const useMainStore = create<MainState & Action>()((set, get) => {
-  const id = nanoid();
   return {
     userId: id,
-    socket: initSocket(id),
+    socket,
   };
 });
 

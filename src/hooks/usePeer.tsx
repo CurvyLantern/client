@@ -34,6 +34,8 @@ const usePeer = (roomId: string) => {
     console.log("I should run only once");
     if (!socket) return;
 
+    console.log(socket);
+
     usePeerStore.subscribe((state) => (peerDataRef.current = state.peerData));
 
     const createNewPeer = ({
