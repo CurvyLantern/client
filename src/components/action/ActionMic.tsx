@@ -19,7 +19,7 @@ const ActionMic = ({ hostCallStream, addCallStream }: ActionMicInterface) => {
     setIsInCall(true);
     try {
       const callStream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints,
+        audio: false,
         video: false,
       });
 
