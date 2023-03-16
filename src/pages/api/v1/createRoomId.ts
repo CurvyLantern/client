@@ -13,8 +13,8 @@ export default async function handler(
   // send data accordingly
   if (req.method === "GET") {
     const { roomId } = await createRoom();
-    res.status(200).json({ roomId });
+    return res.status(200).json({ roomId });
   }
 
-  res.status(200).json({ roomId: "" });
+  return res.status(200).json({ roomId: "" });
 }

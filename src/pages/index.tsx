@@ -111,6 +111,7 @@ const IndexPage = () => {
     const { roomId } = (await fetch("/api/v1/createRoomId").then((res) =>
       res.json()
     )) as { roomId: string };
+    console.log({ roomId }, "testing");
     notification.update();
     onJoinRoom(roomId);
   };

@@ -20,10 +20,12 @@ const initSocket = (id: string) => {
   //   setCookie("userId", userId);
   // }
   let url = "";
-  if (DEV_MODE || !process.env.NEXT_PUBLIC_SOCKET_URL2) {
+  if (DEV_MODE) {
     url = "http://localhost:8000/";
   } else {
-    url = process.env.NEXT_PUBLIC_SOCKET_URL2;
+    url = process.env.NEXT_PUBLIC_SOCKET_URL2
+      ? process.env.NEXT_PUBLIC_SOCKET_URL2
+      : "";
   }
   return io(url, {
     transports: ["websocket"],
