@@ -6,6 +6,8 @@ import { getCookie, setCookie } from "cookies-next";
 
 type MaybeSocket = Socket | undefined;
 
+export const DEV_MODE = process.env.NODE_ENV === "development";
+
 interface InitSocket extends ReturnType<typeof io> {
   auth: {
     userId: string;
@@ -17,17 +19,19 @@ const initSocket = (id: string) => {
   //   userId = nanoid();
   //   setCookie("userId", userId);
   // }
-  return io(
-    "https://mybackend-production.up.railway.app/",
-
-    {
-      transports: ["websocket"],
-      autoConnect: false,
-      auth: {
-        userId: id,
-      },
-    }
-  );
+  let url = "";
+  if (DEV_MODE || !process.env.NEXT_PUBLIC_SOCKET_URL2) {
+    url = "http://localhost:8000/";
+  } else {
+    url = process.env.NEXT_PUBLIC_SOCKET_URL2;
+  }
+  return io(url, {
+    transports: ["websocket"],
+    autoConnect: false,
+    auth: {
+      userId: id,
+    },
+  });
 };
 
 const createPeer = (initiator: boolean = false, stream: MediaStream | null) => {

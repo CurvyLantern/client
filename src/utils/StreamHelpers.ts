@@ -29,8 +29,13 @@ const getStream = async (options: any, onInactive: any) => {
     dumpOptionsInfo(curStream);
     return curStream;
   } catch (error) {
-    console.error(error);
+    throw error;
   }
 };
+const getVideoStream = (stream?: MediaStream | null) => {
+  if (!stream) throw new Error("no stream provided");
+  const videoTrack = stream.getVideoTracks();
+  return new MediaStream(videoTrack!);
+};
 
-export { getStream };
+export { getStream, getVideoStream };

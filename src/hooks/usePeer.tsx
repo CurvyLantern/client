@@ -2,6 +2,7 @@ import { useMainStore } from "@/store/BaseStore";
 import { usePeerStore } from "@/store/PeerStore";
 import { MaybeStream } from "@/types";
 import { createPeer } from "@/utils/Helpers";
+import { useRoomJoinNotification } from "@/utils/Notifications";
 import {
   hideNotification,
   showNotification,
@@ -14,12 +15,12 @@ const debug = (val: any, num: number) => {
   console.log({ num, val });
 };
 
-let room_noti_id = "room-notification";
 const usePeer = (roomId: string) => {
   // const [track, setTrack] = useState(0);
   // const peerMapRef = useRef<PeerMap>(new Map());
   // const { socket, userId } = useContext(SocketContext);
 
+  const notification = useRoomJoinNotification();
   const { socket, userId } = useMainStore((state) => state);
   const { clearAllUser, clearUser, initPeerData, peerData } = usePeerStore(
     (state) => state
@@ -130,23 +131,9 @@ const usePeer = (roomId: string) => {
     //join room
     // this also notifies everyone else in room
     socket.emit("join-room", roomId);
-    showNotification({
-      id: room_noti_id,
-      message: "",
-      title: "Joining Room",
-      autoClose: false,
-      disallowClose: true,
-      loading: true,
-    });
+    notification.start();
     socket.on("joined-room", (roomId) => {
-      updateNotification({
-        id: room_noti_id,
-        message: "",
-        title: "Joined room",
-        autoClose: 5000,
-        color: "blue",
-        disallowClose: true,
-      });
+      notification.update();
     });
     // room joining end
 
@@ -213,7 +200,7 @@ const usePeer = (roomId: string) => {
 
     () => {
       console.log("unmounting react use");
-      hideNotification(room_noti_id);
+      notification.hide();
       socket?.emit("logging-out", { roomId });
       socket.removeAllListeners();
     };

@@ -4,19 +4,16 @@ import { ActionMic } from "@/components/action/ActionMic";
 import { CommonUserMedia } from "@/components/video/CommonVideo";
 import { useChat } from "@/hooks/useChat";
 import { usePeer } from "@/hooks/usePeer";
-import useScreenShare from "@/hooks/useScreenShare";
 import { useMainStore } from "@/store/BaseStore";
 import { useChatStore } from "@/store/ChatStore";
 import { usePeerStore } from "@/store/PeerStore";
-import { MaybeStream } from "@/types";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
 import { stopStream } from "@/utils/Helpers";
-import { getStream, getVideoStream } from "@/utils/StreamHelpers";
+import { getStream } from "@/utils/StreamHelpers";
 import {
   ActionIcon,
   AspectRatio,
   Button,
-  Center,
   Drawer,
   Popover,
   ScrollArea,
@@ -37,7 +34,7 @@ import {
 } from "@tabler/icons-react";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUnmount, useMeasure, useEffectOnce } from "react-use";
 const room_notification_id = "room-notification";
 
@@ -47,19 +44,24 @@ const getShareAbleLinkByRoomId = (host: string, roomId: string) => {
 interface HostPageProps {
   roomId: string;
 }
-
+const getVideoStream = (stream?: MediaStream) => {
+  if (!stream) throw new Error("no stream provided");
+  const videoTrack = stream.getVideoTracks();
+  return new MediaStream(videoTrack!);
+};
 const MovieRoomPage = ({ roomId }: HostPageProps) => {
   const clipboard = useClipboard({ timeout: 1000 });
   const router = useRouter();
 
   const {
-    isSharing,
-    myScreenStream,
-    foreignStreams,
-    startSharing,
-    stopSharing,
-  } = useScreenShare({ roomId });
+    clearEveryThing,
+    addCallStream,
+    addScreenStream,
+    removeStream: removePeerStream,
+    myCurrentMediaStreamRef,
+  } = usePeer(roomId);
 
+  const [isSharing, setIsSharing] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasStartedCalling, setHasStartedCalling] = useState(false);
@@ -70,15 +72,119 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
   });
 
   const socket = useMainStore((state) => state.socket);
+  const peerData = usePeerStore((state) => state.peerData);
 
+  const hostScreenStream = useRef<MediaStream | null>(null);
+  const hostVideoRef = useRef<HTMLVideoElement>(null);
   const callId = useRef("");
   const hostCallStream = useRef<MediaStream | null>(null);
+
+  const friendsVideoEl = useMemo(() => {
+    return Array.from(peerData);
+  }, [peerData]);
+
+  const startScreenShare = async () => {
+    setIsSharing(true);
+
+    const stream = await getStream(
+      { video: videoConstraints, audio: audioConstraints },
+      stopScreenShare
+    );
+    if (stream) {
+      myCurrentMediaStreamRef.current = stream;
+      // for cancelling later
+      hostScreenStream.current = stream;
+
+      //BUG :do this pure simple peer way
+      addScreenStream(stream);
+
+      if (hostVideoRef.current) {
+        try {
+          hostVideoRef.current.srcObject = getVideoStream(stream);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+  };
+
+  const stopScreenShare = () => {
+    console.log("call ended");
+    setIsSharing(false);
+    if (hostVideoRef.current) {
+      hostVideoRef.current.srcObject = null;
+    }
+    //remove stream from peer
+    removePeerStream(hostScreenStream.current);
+
+    //remove tracks
+    stopStream(hostScreenStream.current);
+  };
 
   const handleChat = () => {
     // first toggle chat mode
     setIsChatOpen((prev) => !prev);
 
     //
+  };
+
+  const startCall = async () => {
+    if (hasStartedCalling) return false;
+    setHasStartedCalling(true);
+    try {
+      const callStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: false,
+      });
+
+      callId.current = callStream.id;
+      if (callStream) {
+        // for cancelling later
+        hostCallStream.current = callStream;
+
+        addCallStream(callStream);
+      }
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  };
+
+  const muteAudio = (state: boolean = false) => {
+    return new Promise((resolve) => {
+      const callAudioTracks = hostCallStream.current?.getAudioTracks();
+      if (callAudioTracks && callAudioTracks.length > 0) {
+        for (let track of callAudioTracks) {
+          track.enabled = state;
+        }
+        resolve(true);
+      }
+    });
+  };
+
+  const handleMute = () => {
+    console.log("muting");
+    setIsMuted(true);
+    muteAudio(true);
+  };
+
+  const handleUnMute = () => {
+    console.log("un muting");
+    setIsMuted(false);
+
+    if (!hasStartedCalling) {
+      startCall();
+    } else {
+      muteAudio(true);
+    }
+  };
+
+  const handleCancelCall = () => {
+    stopStream(hostCallStream.current);
+    clearEveryThing(() => {
+      router.push("/");
+    });
   };
 
   useUnmount(() => {
@@ -92,15 +198,17 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
   const [chatInput, setChatInput] = useState("");
   const [messageBoxRef, { height: messageBoxHeight }] =
     useMeasure<HTMLDivElement>();
+
+  useEffect(() => {
+    console.log(window.location, "protocol");
+  }, []);
   return (
     <>
       <div className="relative flex h-screen flex-col items-center  overflow-hidden  ">
         <div className="grid w-full grid-cols-1 gap-5 p-5 md:grid-cols-2 lg:grid-cols-3">
-          {isSharing ? (
-            <StreamWatcherComp stream={myScreenStream} host />
-          ) : null}
-          {foreignStreams.map((fStream, index) => {
-            return <StreamWatcherComp stream={fStream} key={index} />;
+          <CommonUserMedia ref={hostVideoRef} />
+          {friendsVideoEl.map(([userId]) => {
+            return <GuestVideo userId={userId} key={userId} />;
           })}
         </div>
 
@@ -108,19 +216,18 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
         <div className="absolute bottom-10 flex w-11/12 items-center justify-center space-x-10 rounded-md bg-black bg-opacity-40 py-4 px-3 text-white  backdrop-blur-xl md:w-1/2 ">
           {/* <p className="text-white">{track}</p> */}
           {/* Microphone */}
-          {/* <ActionButtonParent>
-            
+          <ActionButtonParent>
             <ActionMic
               hostCallStream={hostCallStream}
               addCallStream={addCallStream}
             />
-          </ActionButtonParent> */}
+          </ActionButtonParent>
           {/* Monitor */}
           <ActionButtonParent>
             {isSharing ? (
               <Button
                 onClick={() => {
-                  stopSharing();
+                  stopScreenShare();
                 }}
                 className="flex items-center justify-center rounded-full bg-red-600 text-white"
               >
@@ -129,7 +236,7 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
             ) : (
               <Button
                 onClick={() => {
-                  startSharing();
+                  startScreenShare();
                 }}
                 className="flex items-center justify-center rounded-full bg-neutral-800"
               >
@@ -149,7 +256,7 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
             </Button>
           </AspectRatio>
           {/* Call End */}
-          {/* <AspectRatio ratio={1} className="w-12">
+          <AspectRatio ratio={1} className="w-12">
             <Button
               onClick={() => {
                 handleCancelCall();
@@ -158,7 +265,7 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
             >
               <IconPhoneOff />
             </Button>
-          </AspectRatio> */}
+          </AspectRatio>
 
           <div>
             <Popover
@@ -272,62 +379,6 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
         </div>
       </Drawer>
     </>
-  );
-};
-
-interface StreamWatcherProps {
-  stream: MaybeStream;
-  host?: boolean;
-}
-const StreamWatcherComp: FC<StreamWatcherProps> = ({ stream, host }) => {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [wantsToWatch, setWantsToWatch] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (el) {
-      if (host) {
-        const videoStream = getVideoStream(stream);
-        el.srcObject = videoStream;
-      } else {
-        el.srcObject = stream;
-      }
-    }
-    return () => {
-      if (el) {
-        el.srcObject = null;
-      }
-    };
-  }, [wantsToWatch, stream, host]);
-  return (
-    <AspectRatio ratio={16 / 9} className="w-full">
-      <Skeleton></Skeleton>
-      {wantsToWatch ? (
-        <video
-          playsInline
-          autoPlay
-          controls
-          ref={ref}
-          className="block h-full w-full object-contain"
-        ></video>
-      ) : (
-        <Center>
-          <Button
-            styles={(theme) => ({
-              root: {
-                borderRadius: theme.radius.lg,
-                backgroundColor: theme.colors.gray,
-              },
-            })}
-            onClick={() => {
-              setWantsToWatch(true);
-            }}
-          >
-            watch stream
-          </Button>
-        </Center>
-      )}
-    </AspectRatio>
   );
 };
 

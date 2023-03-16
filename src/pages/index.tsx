@@ -22,6 +22,8 @@ import { createRoomId } from "@/utils/Helpers";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { showNotification, updateNotification } from "@mantine/notifications";
+import { useRoomCreateNotification } from "@/utils/Notifications";
+import { createRoom } from "@/utils/RoomHelpers";
 
 const BREAKPOINT = "@media (max-width: 755px)";
 
@@ -99,55 +101,46 @@ const IndexPage = () => {
   const { classes } = useStyles();
   const router = useRouter();
   const [roomCode, setRoomCode] = useState("");
+  const notification = useRoomCreateNotification();
 
-  const onCreateRoom = () => {
-    showNotification({
-      message: "creating room",
-      loading: true,
-      autoClose: false,
-      id: "room-create-notification",
-      title: "room",
-      disallowClose: true,
-    });
-    (async () => {
-      const dbRef = collection(database, "rooms");
-      const roomSnapshot = (await getDocs(dbRef)).docs.map(
-        (doc) => doc.data() as { code: string }
-      );
-      const roomId = await createRoomId(9, roomSnapshot);
-
-      updateNotification({
-        message: "room created now redirecting",
-        loading: false,
-        autoClose: 1000,
-        id: "room-create-notification",
-        title: "room",
-        disallowClose: true,
-      });
-      // add this roomcode to firebase
-      const addedRoom = await addDoc(dbRef, {
-        code: roomId,
-        createAt: Timestamp.now(),
-      });
-
-      setRoomCode(roomId);
-
-      router.push(`/${roomId}`);
-    })();
+  const onJoinRoom = (roomId: string) => {
+    router.push(`/${roomId}`);
   };
-  const onJoinRoom = () => {
-    router.push(roomCode);
+  const onCreateRoom = async () => {
+    notification.start();
+    const { roomId } = (await fetch("/api/v1/createRoomId").then((res) =>
+      res.json()
+    )) as { roomId: string };
+    notification.update();
+    onJoinRoom(roomId);
   };
+
   const theme = useMantineTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const [constraints, setConstraints] = useState<[string, any][]>([]);
   useEffect(() => {
-    let constraints = window.navigator.mediaDevices.getSupportedConstraints();
-    console.log({ constraints });
+    let cs = window.navigator.mediaDevices.getSupportedConstraints();
+    const arr = Object.entries(cs);
+    setConstraints(arr);
   }, []);
   return (
     <div className={classes.wrapper}>
+      <div
+        className="
+      fixed
+      top-0 right-0 z-[2000] w-52 bg-black p-4 text-white opacity-70 shadow-sm"
+      >
+        <table>
+          {constraints.map((obj, idx) => {
+            return (
+              <tr key={idx}>
+                {obj[0]} : {JSON.stringify(obj[1])}
+              </tr>
+            );
+          })}
+        </table>
+      </div>
       <Container size={700} className={classes.inner}>
         <h1 className={classes.title}>
           It&apos;s{" "}
@@ -179,6 +172,7 @@ const IndexPage = () => {
               onCreateRoom();
             }}
           >
+            {/* Create Room {Math.random()} */}
             Create Room
           </Button>
 
@@ -224,7 +218,7 @@ const IndexPage = () => {
           <Button
             variant="outline"
             color={"yellow"}
-            onClick={() => onJoinRoom()}
+            onClick={() => onJoinRoom(roomCode)}
           >
             Proceed
           </Button>
@@ -234,17 +228,17 @@ const IndexPage = () => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-  const forwarded = req.headers["x-forwarded-for"];
-  const ip = forwarded
-    ? (forwarded as string).split(/, /)[0]
-    : req.socket.remoteAddress;
+// export const getServerSideProps: GetServerSideProps = async ({ req }) => {
+//   const forwarded = req.headers["x-forwarded-for"];
+//   const ip = forwarded
+//     ? (forwarded as string).split(/, /)[0]
+//     : req.socket.remoteAddress;
 
-  console.log({ ip });
+//   console.log({ ip });
 
-  return {
-    props: {},
-  };
-};
+//   return {
+//     props: {},
+//   };
+// };
 
 export default IndexPage;
