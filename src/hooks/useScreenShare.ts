@@ -1,22 +1,12 @@
-import { useMainStore } from "@/store/BaseStore";
-import type { MaybePeer, MaybeStream } from "@/types";
+import { useMainStore } from "@/store/mainSlice";
+import type { MaybeStream } from "@/types";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
 import { createPeer, stopStream } from "@/utils/Helpers";
 import { useRoomJoinNotification } from "@/utils/Notifications";
+import { socketEvents } from "@/utils/SocketHelpers";
 import { getStream } from "@/utils/StreamHelpers";
-import { updateNotification } from "@mantine/notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
-import SimplePeer, { Instance } from "simple-peer";
-
-const socketEvents = {
-  join: "join-room",
-  joined: "joined-room",
-  friendJoined: "friend-joined-room",
-  receive: "create-receive-peer",
-  sendSignal: "send-signal-to-friend",
-  receiveSignal: "receive-signal-from-friend",
-  friendLogout: "friend-logged-out",
-} as const;
+import { Instance } from "simple-peer";
 
 interface Props {
   roomId: string;
