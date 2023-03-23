@@ -1,7 +1,3 @@
-import { initSocket } from "@/utils/Helpers";
-import { nanoid } from "nanoid";
-import SimplePeer from "simple-peer";
-import { io } from "socket.io-client";
 import { create } from "zustand";
 
 interface MainState {
