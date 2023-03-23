@@ -1,13 +1,8 @@
-import { useMainStore } from "@/store/BaseStore";
-import { usePeerStore } from "@/store/PeerStore";
+import { useMainStore } from "@/store/mainSlice";
+import { usePeerStore } from "@/store/peerSlice";
 import { MaybeStream } from "@/types";
 import { createPeer } from "@/utils/Helpers";
 import { useRoomJoinNotification } from "@/utils/Notifications";
-import {
-  hideNotification,
-  showNotification,
-  updateNotification,
-} from "@mantine/notifications";
 import { useEffect, useRef } from "react";
 import SimplePeer from "simple-peer";
 
