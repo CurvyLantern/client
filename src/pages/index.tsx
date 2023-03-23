@@ -1,29 +1,17 @@
+import { useRoomCreateNotification } from "@/utils/Notifications";
 import {
-  createStyles,
-  Container,
-  Text,
   Button,
+  Container,
+  Flex,
   Group,
   Modal,
-  useMantineTheme,
-  Flex,
+  Text,
   TextInput,
+  createStyles,
+  useMantineTheme,
 } from "@mantine/core";
-import { app, database } from "libs/database/firebase";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  doc,
-  Timestamp,
-} from "firebase/firestore";
-import { useEffect, useState } from "react";
-import { createRoomId } from "@/utils/Helpers";
-import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { showNotification, updateNotification } from "@mantine/notifications";
-import { useRoomCreateNotification } from "@/utils/Notifications";
-import { createRoom } from "@/utils/RoomHelpers";
+import { useEffect, useState } from "react";
 
 const BREAKPOINT = "@media (max-width: 755px)";
 
@@ -104,7 +92,7 @@ const IndexPage = () => {
   const notification = useRoomCreateNotification();
 
   const onJoinRoom = (roomId: string) => {
-    router.push(`/${roomId}`);
+    router.push(`/waitlist/${roomId}`);
   };
   const onCreateRoom = async () => {
     notification.start();
@@ -228,18 +216,5 @@ const IndexPage = () => {
     </div>
   );
 };
-
-// export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-//   const forwarded = req.headers["x-forwarded-for"];
-//   const ip = forwarded
-//     ? (forwarded as string).split(/, /)[0]
-//     : req.socket.remoteAddress;
-
-//   console.log({ ip });
-
-//   return {
-//     props: {},
-//   };
-// };
 
 export default IndexPage;

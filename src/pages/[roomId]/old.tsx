@@ -4,9 +4,9 @@ import { ActionMic } from "@/components/action/ActionMic";
 import { CommonUserMedia } from "@/components/video/CommonVideo";
 import { useChat } from "@/hooks/useChat";
 import { usePeer } from "@/hooks/usePeer";
-import { useMainStore } from "@/store/BaseStore";
-import { useChatStore } from "@/store/ChatStore";
-import { usePeerStore } from "@/store/PeerStore";
+import { useMainStore } from "@/store/mainSlice";
+import { usePeerStore } from "@/store/peerSlice";
+import { useChatStore } from "@/store/slices/chatSlice";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
 import { stopStream } from "@/utils/Helpers";
 import { getStream } from "@/utils/StreamHelpers";
@@ -17,7 +17,6 @@ import {
   Drawer,
   Popover,
   ScrollArea,
-  Skeleton,
   TextInput,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
@@ -25,8 +24,6 @@ import { hideNotification } from "@mantine/notifications";
 import {
   IconDotsVertical,
   IconMessage,
-  IconMicrophone,
-  IconMicrophoneOff,
   IconPhoneOff,
   IconPlane,
   IconScreenShare,
@@ -35,7 +32,7 @@ import {
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useUnmount, useMeasure, useEffectOnce } from "react-use";
+import { useEffectOnce, useMeasure, useUnmount } from "react-use";
 const room_notification_id = "room-notification";
 
 const getShareAbleLinkByRoomId = (host: string, roomId: string) => {

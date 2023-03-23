@@ -1,17 +1,6 @@
 import { CommonUserMedia } from "@/components/video/CommonVideo";
-import { useMainStore } from "@/store/BaseStore";
-import { usePeerStore } from "@/store/PeerStore";
-import { AspectRatio, Skeleton } from "@mantine/core";
-import {
-  Dispatch,
-  SetStateAction,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
-import { useUpdateEffect } from "react-use";
+import { usePeerStore } from "@/store/peerSlice";
+import { useCallback, useEffect, useRef } from "react";
 
 
 const GuestVideo = ({

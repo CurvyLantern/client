@@ -1,17 +1,10 @@
-import { GuestVideo } from "@/components/CustomVideo";
 import { ActionButtonParent } from "@/components/action/ActionButtonParent";
-import { ActionMic } from "@/components/action/ActionMic";
-import { CommonUserMedia } from "@/components/video/CommonVideo";
 import { useChat } from "@/hooks/useChat";
-import { usePeer } from "@/hooks/usePeer";
 import useScreenShare from "@/hooks/useScreenShare";
-import { useMainStore } from "@/store/BaseStore";
-import { useChatStore } from "@/store/ChatStore";
-import { usePeerStore } from "@/store/PeerStore";
+import { useMainStore } from "@/store/mainSlice";
+import { useChatStore } from "@/store/slices/chatSlice";
 import { MaybeStream } from "@/types";
-import { audioConstraints, videoConstraints } from "@/utils/Constraints";
-import { stopStream } from "@/utils/Helpers";
-import { getStream, getVideoStream } from "@/utils/StreamHelpers";
+import { getVideoStream } from "@/utils/StreamHelpers";
 import {
   ActionIcon,
   AspectRatio,
@@ -28,17 +21,14 @@ import { hideNotification } from "@mantine/notifications";
 import {
   IconDotsVertical,
   IconMessage,
-  IconMicrophone,
-  IconMicrophoneOff,
-  IconPhoneOff,
   IconPlane,
   IconScreenShare,
   IconScreenShareOff,
 } from "@tabler/icons-react";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { FC, useEffect, useMemo, useRef, useState } from "react";
-import { useUnmount, useMeasure, useEffectOnce } from "react-use";
+import { FC, useEffect, useRef, useState } from "react";
+import { useEffectOnce, useMeasure, useUnmount } from "react-use";
 const room_notification_id = "room-notification";
 
 const getShareAbleLinkByRoomId = (host: string, roomId: string) => {
@@ -309,7 +299,7 @@ const StreamWatcherComp: FC<StreamWatcherProps> = ({ stream, host }) => {
           controls
           ref={ref}
           className="block h-full w-full object-contain"
-        ></video>
+        />
       ) : (
         <Center>
           <Button

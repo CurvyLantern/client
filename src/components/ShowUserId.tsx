@@ -1,5 +1,4 @@
-import { useMainStore } from "@/store/BaseStore";
-import { usePeerStore } from "@/store/PeerStore";
+import { useMainStore } from "@/store/mainSlice";
 import { useEffect, useState } from "react";
 
 const Demo = () => {

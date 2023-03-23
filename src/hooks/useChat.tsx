@@ -1,6 +1,5 @@
-import { useMainStore } from "@/store/BaseStore";
-import { useChatStore } from "@/store/ChatStore";
-import { usePeerStore } from "@/store/PeerStore";
+import { useMainStore } from "@/store/mainSlice";
+import { useChatStore } from "@/store/slices/chatSlice";
 import { ChatType } from "@/types";
 import { useEffect } from "react";
 
