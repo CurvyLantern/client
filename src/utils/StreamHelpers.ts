@@ -21,7 +21,7 @@ const dumpOptionsInfo = (stream: MediaStream) => {
 };
 
 export const isStream = (object: unknown) => {
-  return object instanceof MediaStream;
+  return Boolean(object) && object instanceof MediaStream;
 };
 
 export const getDisplayStream = async (options: any, onInactive: any) => {

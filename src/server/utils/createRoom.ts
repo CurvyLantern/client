@@ -2,17 +2,22 @@ import { Room } from "libs/database/models";
 import { createRoomId } from "./createRoomId";
 import { doesRoomExist } from "./doesRoomExist";
 
-export const createRoom = async (
-  exceptRoomId: string = ""
-): Promise<{
-  roomId: string;
-}> => {
-  const roomId = createRoomId(exceptRoomId);
-  if (await doesRoomExist(roomId)) {
-    return await createRoom(roomId);
-  }
+interface CreateRoom {
+  userId: string;
+}
+export const createRoom = async ({ userId }: CreateRoom) => {
+  const getUniqueId = async (): Promise<string> => {
+    const roomId = createRoomId();
+    if (await doesRoomExist(roomId)) {
+      return await getUniqueId();
+    } else {
+      return roomId;
+    }
+  };
+  const roomId = await getUniqueId();
   const room = new Room({
     roomId,
+    authorId: userId,
   });
   await room.save();
   return { roomId };

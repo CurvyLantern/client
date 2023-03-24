@@ -1,13 +1,14 @@
-import { useRoomCreateNotification } from "@/utils/Notifications";
+import { useBoundStore } from "@/store";
+import { useRoomCheckerToast, useRoomCreateToast } from "@/utils/Notifications";
 import {
   Button,
   Container,
+  createStyles,
   Flex,
   Group,
   Modal,
   Text,
   TextInput,
-  createStyles,
   useMantineTheme,
 } from "@mantine/core";
 import { useRouter } from "next/router";
@@ -88,25 +89,41 @@ const useStyles = createStyles((theme) => ({
 const IndexPage = () => {
   const { classes } = useStyles();
   const router = useRouter();
-  const [roomCode, setRoomCode] = useState("");
-  const notification = useRoomCreateNotification();
+  const userId = useBoundStore((s) => s.userId);
+  const roomCreateToast = useRoomCreateToast();
+  const roomCheckerToast = useRoomCheckerToast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [joinRoomId, setJoinRoomId] = useState("");
 
-  const onJoinRoom = (roomId: string) => {
+  const enterWaitlist = (roomId: string) => {
     router.push(`/waitlist/${roomId}`);
   };
+
+  const onJoinRoom = async (roomId: string) => {
+    roomCheckerToast.start();
+    const { roomState } = await fetch(`api/v1/checkRoom/${roomId}`).then<{
+      roomState: "available" | "unavailable";
+    }>((res) => res.json());
+    if (roomState === "available") {
+      roomCheckerToast.success();
+      enterWaitlist(roomId);
+    } else {
+      roomCheckerToast.failure();
+      setJoinRoomId("");
+    }
+  };
   const onCreateRoom = async () => {
-    notification.start();
-    const { roomId } = (await fetch("/api/v1/createRoomId").then((res) =>
-      res.json()
+    roomCreateToast.start();
+    const { roomId } = (await fetch(`/api/v1/getNewRoom/${userId}`).then(
+      (res) => res.json()
     )) as { roomId: string };
     console.log({ roomId }, "testing");
-    notification.update();
-    onJoinRoom(roomId);
+    roomCreateToast.update();
+    router.push(`/${roomId}`);
   };
 
   const theme = useMantineTheme();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [constraints, setConstraints] = useState<[string, any][]>([]);
   useEffect(() => {
     let cs = window.navigator.mediaDevices.getSupportedConstraints();
@@ -115,21 +132,6 @@ const IndexPage = () => {
   }, []);
   return (
     <div className={classes.wrapper}>
-      <div
-        className="
-      fixed
-      top-0 right-0 z-[2000] w-52 bg-black p-4 text-white opacity-70 shadow-sm"
-      >
-        <table>
-          {constraints.map((obj, idx) => {
-            return (
-              <tr key={idx}>
-                {obj[0]} : {JSON.stringify(obj[1])}
-              </tr>
-            );
-          })}
-        </table>
-      </div>
       <Container size={700} className={classes.inner}>
         <h1 className={classes.title}>
           It&apos;s{" "}
@@ -201,13 +203,13 @@ const IndexPage = () => {
             size="xl"
             placeholder="Enter room code"
             className="text-center"
-            value={roomCode}
-            onChange={(evt) => setRoomCode(evt.currentTarget.value)}
+            value={joinRoomId}
+            onChange={(evt) => setJoinRoomId(evt.currentTarget.value)}
           />
           <Button
             variant="outline"
             color={"yellow"}
-            onClick={() => onJoinRoom(roomCode)}
+            onClick={() => onJoinRoom(joinRoomId)}
           >
             Proceed
           </Button>
@@ -218,3 +220,22 @@ const IndexPage = () => {
 };
 
 export default IndexPage;
+
+/* 
+
+<div
+        className="
+      fixed
+      top-0 right-0 z-[2000] w-52 bg-black p-4 text-white opacity-70 shadow-sm"
+      >
+        <table>
+          {constraints.map((obj, idx) => {
+            return (
+              <tr key={idx}>
+                {obj[0]} : {JSON.stringify(obj[1])}
+              </tr>
+            );
+          })}
+        </table>
+      </div>
+*/

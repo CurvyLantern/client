@@ -2,13 +2,12 @@ import type { Instance } from "simple-peer";
 import { StateCreator } from "zustand";
 import { AllSliceType } from "./types";
 
-type MaybePeer = Instance | null;
-type PeerMapType = Map<string, MaybePeer>;
+type PeerMapType = Map<string, Instance>;
 interface MainState {
   peerMap: PeerMapType;
 }
 interface Action {
-  addPeer: (id: string, peer: MaybePeer) => void;
+  addPeer: (id: string, peer: Instance) => void;
   removePeer: (id: string) => void;
   removeAll: () => void;
 }
@@ -24,6 +23,7 @@ const createPeerSlice: StateCreator<AllSliceType, [], [], PeerSlice> = (
 ) => ({
   ...initialState,
   addPeer: (id, peer) => {
+    if (!peer) return;
     set({
       peerMap: new Map(get().peerMap).set(id, peer),
     });

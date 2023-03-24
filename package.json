@@ -40,6 +40,7 @@
     "@types/simple-peer": "^9.11.5",
     "@types/video.js": "^7.3.50",
     "autoprefixer": "^10.4.13",
+    "husky": "^8.0.0",
     "nprogress": "^0.2.0",
     "postcss": "^8.4.21",
     "prettier": "^2.8.3",
@@ -52,7 +53,9 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "ts-lint": "tsc --noEmit --incremental --watch",
+    "prepare": "husky install"
   },
   "version": "0.2.0"
 }

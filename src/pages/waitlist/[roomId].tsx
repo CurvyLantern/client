@@ -1,9 +1,10 @@
-import { useMainStore } from "@/store/mainSlice";
+import { useBoundStore } from "@/store";
 import { socketEvents } from "@/utils/SocketHelpers";
 import { useEffect, useRef } from "react";
 
 const WaitRoom = () => {
-  const { socket, userId } = useMainStore((state) => state);
+  const socket = useBoundStore((state) => state.socket);
+  const userId = useBoundStore((state) => state.userId);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {

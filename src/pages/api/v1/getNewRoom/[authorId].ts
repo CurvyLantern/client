@@ -14,8 +14,11 @@ export default async function handler(
   // look for this room id in the database
   // send data accordingly
   if (req.method === "GET") {
-    const testClient = await connectToDatabase();
-    const { roomId } = await createRoom();
+    const authorId = req.query.authorId as string;
+    await connectToDatabase();
+    const { roomId } = await createRoom({
+      userId: authorId,
+    });
     return res.status(200).json({ roomId });
   }
 

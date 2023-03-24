@@ -1,19 +1,15 @@
 import { ActionButtonParent } from "@/components/action/ActionButtonParent";
+import StreamWatcher from "@/components/video/StreamWatcher";
 import { useChat } from "@/hooks/useChat";
 import useScreenShare from "@/hooks/useScreenShare";
-import { useMainStore } from "@/store/mainSlice";
-import { useChatStore } from "@/store/slices/chatSlice";
-import { MaybeStream } from "@/types";
-import { getVideoStream } from "@/utils/StreamHelpers";
+import { useBoundStore } from "@/store";
 import {
   ActionIcon,
   AspectRatio,
   Button,
-  Center,
   Drawer,
   Popover,
   ScrollArea,
-  Skeleton,
   TextInput,
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
@@ -27,7 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { FC, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEffectOnce, useMeasure, useUnmount } from "react-use";
 const room_notification_id = "room-notification";
 
@@ -42,14 +38,11 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
   const clipboard = useClipboard({ timeout: 1000 });
   const router = useRouter();
 
-  const {
-    isSharing,
-    myScreenStream,
-    foreignStreams,
-    startSharing,
-    stopSharing,
-  } = useScreenShare({ roomId });
-
+  const { isSharing, startSharing, stopSharing } = useScreenShare({ roomId });
+  const myStream = useBoundStore((state) => state.myStream);
+  const foreignDisplayStreams = useBoundStore(
+    (state) => state.foreignDisplayStreams
+  );
   const [isMuted, setIsMuted] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasStartedCalling, setHasStartedCalling] = useState(false);
@@ -59,7 +52,7 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
     setShareLink(getShareAbleLinkByRoomId(window.location.origin, roomId));
   });
 
-  const socket = useMainStore((state) => state.socket);
+  const socket = useBoundStore((state) => state.socket);
 
   const callId = useRef("");
   const hostCallStream = useRef<MediaStream | null>(null);
@@ -77,21 +70,30 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
     socket?.emit("logging-out", { roomId });
   });
 
-  const chatMessages = useChatStore((state) => state.messages);
+  const chatMessages = useBoundStore((state) => state.messages);
   const { sendMessage } = useChat(roomId);
   const [chatInput, setChatInput] = useState("");
   const [messageBoxRef, { height: messageBoxHeight }] =
     useMeasure<HTMLDivElement>();
+
+  useEffect(() => {
+    console.log("component is mounting");
+    return () => {
+      console.log("component is unmounting");
+    };
+  }, []);
   return (
     <>
       <div className="relative flex h-screen flex-col items-center  overflow-hidden  ">
         <div className="grid w-full grid-cols-1 gap-5 p-5 md:grid-cols-2 lg:grid-cols-3">
-          {isSharing ? (
-            <StreamWatcherComp stream={myScreenStream} host />
-          ) : null}
-          {foreignStreams.map((fStream, index) => {
-            return <StreamWatcherComp stream={fStream} key={index} />;
-          })}
+          {isSharing ? <StreamWatcher stream={myStream} host /> : null}
+          {foreignDisplayStreams.length > 0 ? (
+            foreignDisplayStreams.map((fStream, index) => {
+              return <StreamWatcher stream={fStream} key={fStream.id} />;
+            })
+          ) : (
+            <p>No one is here yet</p>
+          )}
         </div>
 
         {/* Action Bar */}
@@ -265,61 +267,6 @@ const MovieRoomPage = ({ roomId }: HostPageProps) => {
   );
 };
 
-interface StreamWatcherProps {
-  stream: MaybeStream;
-  host?: boolean;
-}
-const StreamWatcherComp: FC<StreamWatcherProps> = ({ stream, host }) => {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [wantsToWatch, setWantsToWatch] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (el) {
-      if (host) {
-        const videoStream = getVideoStream(stream);
-        el.srcObject = videoStream;
-      } else {
-        el.srcObject = stream;
-      }
-    }
-    return () => {
-      if (el) {
-        el.srcObject = null;
-      }
-    };
-  }, [wantsToWatch, stream, host]);
-  return (
-    <AspectRatio ratio={16 / 9} className="w-full">
-      <Skeleton></Skeleton>
-      {wantsToWatch ? (
-        <video
-          playsInline
-          autoPlay
-          controls
-          ref={ref}
-          className="block h-full w-full object-contain"
-        />
-      ) : (
-        <Center>
-          <Button
-            styles={(theme) => ({
-              root: {
-                borderRadius: theme.radius.lg,
-                backgroundColor: theme.colors.gray,
-              },
-            })}
-            onClick={() => {
-              setWantsToWatch(true);
-            }}
-          >
-            watch stream
-          </Button>
-        </Center>
-      )}
-    </AspectRatio>
-  );
-};
 
 export const getServerSideProps: GetServerSideProps = async ({
   req,

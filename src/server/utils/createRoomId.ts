@@ -16,10 +16,7 @@ const transformRawRoomId = (rawId: string) => {
   return splitString(_roomId);
 };
 const customNano = customAlphabet(letters, 9);
-export const createRoomId = (exceptId: string = ""): string => {
+export const createRoomId = () => {
   let id = transformRawRoomId(customNano());
-  if (exceptId === id) {
-    return createRoomId(id);
-  }
   return id;
 };

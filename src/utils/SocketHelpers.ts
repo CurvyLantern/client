@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-import { isDevMode } from "./Helpers";
+import isDevMode from "./isDevMode";
 
 export const socketEvents = {
   join: "join-room",

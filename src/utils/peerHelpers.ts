@@ -1,6 +1,6 @@
 import { ICE_SERVERS } from "@/ICE";
 import Peer from "simple-peer";
-import { isDevMode } from "./Helpers";
+import isDevMode from "./isDevMode";
 
 export const createPeer = (
   initiator: boolean = false,
