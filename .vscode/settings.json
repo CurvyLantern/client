@@ -29,5 +29,6 @@
     "node_modules": true,
     ".next": true
   },
-  "explorerExclude.backup": {}
+  "explorerExclude.backup": {},
+  "typescript.tsdk": "node_modules\\typescript\\lib"
 }

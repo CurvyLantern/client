@@ -1,7 +1,20 @@
-export const roomIdFetcher = async () => {
-	return await (await fetch('/api/getRoomId')).json();
+export const roomFetcher = () => {
+  return fetch("/api/v1/getNewRoom").then<{
+    roomId: string;
+  }>((res) => res.json());
 };
-
-export const checkRoomIdInServer = async (roomId: string) => {
-	return (await (await fetch(`/api/checkRoomId/:${roomId}`)).json()) as 'present' | 'absent';
+type Data =
+  | {
+      roomState: "available" | "unavailable";
+    }
+  | {
+      message: string;
+    };
+export const roomAvailabilityFetcher = (roomId: string) => {
+  return fetch(`/api/v1/checkRoom`, {
+    body: JSON.stringify({
+      roomId,
+    }),
+    method: "POST",
+  }).then<Data>((response) => response.json());
 };
