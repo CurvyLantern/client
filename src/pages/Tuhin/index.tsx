@@ -24,10 +24,10 @@ import Screen from "@/components/tuhin/main";
 const index = () => {
   return (
     <div className="w-full">
-      <div className="h-[80vh] w-full ">
+      <div className=" h-[80vh] w-full ">
         <Screen />
       </div>
-      <div className="h-[20vh]">
+      <div className=" h-[20vh]">
         <Footer />
       </div>
     </div>
