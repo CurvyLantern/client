@@ -1,3 +1,5 @@
+import { MaybeStream } from "@/types";
+
 const dumpOptionsInfo = (stream: MediaStream) => {
   if (process.env.NODE_ENV === "production") return;
   const tracks = stream.getTracks();
@@ -18,7 +20,11 @@ const dumpOptionsInfo = (stream: MediaStream) => {
   }
 };
 
-const getStream = async (options: any, onInactive: any) => {
+export const isStream = (object: unknown) => {
+  return Boolean(object) && object instanceof MediaStream;
+};
+
+export const getDisplayStream = async (options: any, onInactive: any) => {
   try {
     const curStream = await window.navigator.mediaDevices.getDisplayMedia(
       options
@@ -32,10 +38,41 @@ const getStream = async (options: any, onInactive: any) => {
     throw error;
   }
 };
-const getVideoStream = (stream?: MediaStream | null) => {
-  if (!stream) throw new Error("no stream provided");
-  const videoTrack = stream.getVideoTracks();
-  return new MediaStream(videoTrack!);
+export const getUserStream = async (options: any, onInactive: any) => {
+  try {
+    const curStream = await window.navigator.mediaDevices.getUserMedia(options);
+    // @ts-ignore
+    curStream.oninactive = onInactive;
+
+    dumpOptionsInfo(curStream);
+    return curStream;
+  } catch (error) {
+    throw error;
+  }
+};
+export const streamFromTracks = (tracks: MediaStreamTrack[]) => {
+  const stream = new MediaStream();
+  tracks.forEach((track) => {
+    stream.addTrack(track);
+  });
+  return stream;
+};
+export const getVideoStream = (stream?: MediaStream | null) => {
+  if (stream) {
+    return streamFromTracks(stream.getVideoTracks());
+  }
+  throw new Error("no stream provided");
+};
+export const getAudioStream = (stream: MaybeStream) => {
+  if (stream) {
+    return streamFromTracks(stream.getAudioTracks());
+  }
+  throw new Error("no stream provided");
 };
 
-export { getStream, getVideoStream };
+export const stopStream = (stream: MediaStream | null) => {
+  if (!stream) return;
+  stream.getTracks().forEach((track) => {
+    track.stop();
+  });
+};

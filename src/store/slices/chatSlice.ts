@@ -1,14 +1,19 @@
 import { ChatArray, ChatType } from "@/types";
 import { nanoid } from "nanoid";
-import { create } from "zustand";
+import { StateCreator } from "zustand";
+import { AllSliceType } from "./types";
 
 interface MainState {
   messages: ChatArray;
 }
-type Action = {
+interface Action {
   enterChat: (chat: ChatType) => void;
-};
-const useChatStore = create<MainState & Action>()((set, get) => ({
+}
+export interface ChatSlice extends MainState, Action {}
+const createChatSlice: StateCreator<AllSliceType, [], [], ChatSlice> = (
+  set,
+  get
+) => ({
   messages: [],
   enterChat: (chat) => {
     let id = nanoid();
@@ -18,6 +23,6 @@ const useChatStore = create<MainState & Action>()((set, get) => ({
       };
     });
   },
-}));
+});
 
-export { useChatStore };
+export default createChatSlice;

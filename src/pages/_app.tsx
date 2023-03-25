@@ -1,4 +1,4 @@
-import { Demo } from "@/components/ShowUserId";
+import { useBoundStore } from "@/store";
 import "@/styles/globals.css";
 import { MantineProvider } from "@mantine/core";
 import { NotificationsProvider } from "@mantine/notifications";
@@ -12,6 +12,7 @@ import { useEffect } from "react";
 export default function App(props: AppProps) {
   const { Component, pageProps } = props;
   const router = useRouter();
+  const a = useBoundStore((state) => state);
 
   useEffect(() => {
     NProgress.configure({ showSpinner: false });
@@ -59,7 +60,7 @@ export default function App(props: AppProps) {
       >
         <NotificationsProvider position="top-center" zIndex={99999}>
           <div>
-            {process.env.NODE_ENV === "development" ? <Demo /> : null}
+            {/* {process.env.NODE_ENV === "development" ? <DebugPanel /> : null} */}
             <Component {...pageProps} />
           </div>
         </NotificationsProvider>

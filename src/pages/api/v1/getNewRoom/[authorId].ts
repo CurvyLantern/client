@@ -1,6 +1,8 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
+import { createRoom } from "@/server/utils/createRoom";
+import { connectToDatabase } from "libs/database";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createRoom } from "@/utils/RoomHelpers";
+
 type Data = {
   roomId: string;
 };
@@ -12,7 +14,11 @@ export default async function handler(
   // look for this room id in the database
   // send data accordingly
   if (req.method === "GET") {
-    const { roomId } = await createRoom();
+    const authorId = req.query.authorId as string;
+    await connectToDatabase();
+    const { roomId } = await createRoom({
+      userId: authorId,
+    });
     return res.status(200).json({ roomId });
   }
 
