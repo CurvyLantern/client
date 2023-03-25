@@ -1,8 +1,8 @@
-const user = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const user = [1, 2, 3];
 
 const TuhinPage = () => {
   return (
-    <div className="m-4 flex min-h-screen flex-row items-center justify-center gap-5 overflow-hidden">
+    <div className="m-4 flex min-h-screen flex-col  items-center justify-center gap-5 overflow-hidden">
       <div
         className={` flex ${
           user.length === 1 ? "w-1/2" : "w-full "
