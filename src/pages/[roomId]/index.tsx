@@ -56,24 +56,24 @@ const RoomPage: NextPage<RoomPageProps> = ({ router }) => {
     if (socket && socket.connected) {
       socket.emit(socketEvents.permissionGranted, { socketId, userId, roomId });
     }
-    // remove({ socketId, userId });
-  };
-  const onDeclineMember = ({
-    userId,
-    socketId,
-  }: {
-    userId: string;
-    socketId: string;
-  }) => {
-    if (socket && socket.connected) {
-      socket.emit(socketEvents.permissionRejected, {
-        socketId,
-        userId,
-        roomId,
-      });
-    }
     remove({ socketId, userId });
   };
+  // const onDeclineMember = ({
+  //   userId,
+  //   socketId,
+  // }: {
+  //   userId: string;
+  //   socketId: string;
+  // }) => {
+  //   if (socket && socket.connected) {
+  //     socket.emit(socketEvents.permissionRejected, {
+  //       socketId,
+  //       userId,
+  //       roomId,
+  //     });
+  //   }
+  //   remove({ socketId, userId });
+  // };
 
   return (
     <>
@@ -98,14 +98,14 @@ const RoomPage: NextPage<RoomPageProps> = ({ router }) => {
               >
                 Accept
               </button>
-              <button
+              {/* <button
                 onClick={() => {
                   onDeclineMember(member);
                 }}
                 className="rounded-md bg-red-400 px-3 py-1 text-white"
               >
                 Decline
-              </button>
+              </button> */}
             </div>
           </div>
         ))}

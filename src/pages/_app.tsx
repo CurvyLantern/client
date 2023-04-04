@@ -12,12 +12,9 @@ import { useEffect } from "react";
 
 export default function App({ Component, pageProps }: AppProps) {
   useNprogress();
-
+  useSocketClient();
   const userId = useBoundStore((s) => s.userId);
   const setUserId = useBoundStore((s) => s.setUserId);
-  // initializing the socket;
-  // TODO: find a better way to do this;
-  const _socket = useSocketClient();
 
   useEffect(() => {
     if (userId) return;

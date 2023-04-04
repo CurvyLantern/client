@@ -1,9 +1,9 @@
 import { useBoundStore } from "@/store";
 import { useRoomCheckerToast, useRoomCreateToast } from "@/utils/Notifications";
-import { Button, Flex, Modal, TextInput, useMantineTheme } from "@mantine/core";
+import { Modal, TextInput, useMantineTheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const IndexPage = () => {
   const router = useRouter();
@@ -46,15 +46,7 @@ const IndexPage = () => {
     roomCreateToast.update();
     router.push(`/${roomId}`);
   };
-
   const theme = useMantineTheme();
-
-  const [constraints, setConstraints] = useState<[string, any][]>([]);
-  useEffect(() => {
-    let cs = window.navigator.mediaDevices.getSupportedConstraints();
-    const arr = Object.entries(cs);
-    setConstraints(arr);
-  }, []);
   return (
     <div className="relative flex h-full items-center justify-center bg-neutral-900">
       <div className="relative mx-auto w-11/12 max-w-3xl">
@@ -133,13 +125,15 @@ const IndexPage = () => {
             value={joinRoomId}
             onChange={(evt) => setJoinRoomId(evt.currentTarget.value)}
           />
-          <Button
-            variant="outline"
-            color={"yellow"}
+          <button
+            className="rounded-md border-2 border-yellow-500 bg-transparent px-9 py-2 text-sm font-bold 
+             text-yellow-500 outline-transparent"
+            type="button"
             onClick={() => onJoinRoom(joinRoomId)}
           >
+            {/* Create Room {Math.random()} */}
             Proceed
-          </Button>
+          </button>
         </div>
       </Modal>
     </div>

@@ -1,8 +1,5 @@
-import { initSocketClient } from "@/utils/SocketHelpers";
-import { nanoid } from "nanoid";
 import { Socket } from "socket.io-client";
 import { StateCreator } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { AllSliceType } from "./types";
 
 interface MainState {
@@ -31,8 +28,5 @@ const createMainSlice: StateCreator<AllSliceType, [], [], MainSlice> = (
     },
   };
 };
-
-
-
 
 export default createMainSlice;
