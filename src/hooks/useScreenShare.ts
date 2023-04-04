@@ -1,67 +1,46 @@
-import { useBoundStoreShallow } from "@/store";
+import { useBoundStore, useBoundStoreShallow } from "@/store";
 import { audioConstraints, videoConstraints } from "@/utils/Constraints";
 import { useRoomJoinToast } from "@/utils/Notifications";
 import { createPeer } from "@/utils/peerHelpers";
 import { socketEvents } from "@/utils/SocketHelpers";
 import { getDisplayStream, stopStream } from "@/utils/StreamHelpers";
+import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
 // FIXME: Fix all the errors
 
-interface Props {
-  roomId: string;
-}
 type MaybeSocket = ReturnType<typeof io> | null;
 
 interface NewPeerProps {
-  myUserId: string;
   forWhomId: string;
   forWhomSocketId: string | null;
-  stream: MediaStream | null;
   initiator: boolean;
-  socket: MaybeSocket;
-  roomId: string;
+  signal?: any;
 }
-const useScreenShare = ({ roomId }: Props) => {
+const useScreenShare = () => {
+  const { roomId } = useRouter().query as { roomId: string };
   const notification = useRoomJoinToast();
-  const {
-    peerMap,
-    myStream,
-    addMyStream,
-    addForeignStream,
-    addPeer,
-    socket,
-    userId,
-  } = useBoundStoreShallow((state) => ({
-    userId: state.userId,
-    socket: state.socket,
-    myStream: state.myStream,
-    addMyStream: state.addMyStream,
-    foreignDisplayStreams: state.foreignDisplayStreams,
-    addForeignStream: state.addForeignStream,
-    peerMap: state.peerMap,
-    addPeer: state.addPeer,
-    removeStream: state.removeStream,
-  }));
+  const peerMap = useBoundStore((s) => s.peerMap);
+  const myStream = useBoundStore((s) => s.myStream);
+  const socket = useBoundStore((s) => s.socket);
+  const userId = useBoundStore((s) => s.userId);
+  const setMyStream = useBoundStore((s) => s.setMyStream);
+  const addPeer = useBoundStore((s) => s.addPeer);
+  const removePeer = useBoundStore((s) => s.removePeer);
+  const foreignStreams = useBoundStore((s) => s.foreignStreams);
+  const addForeignStream = useBoundStore((s) => s.addForeignStream);
+  const removeStream = useBoundStore((s) => s.removeStream);
+
   const renderCount = useRef(0);
   useEffect(() => {
     renderCount.current++;
-    console.log(socket, renderCount.current);
+    // console.log(socket, renderCount.current);
   });
-  const [isSharing, setIsSharing] = useState(false);
 
   const createNewPeerForUser = useCallback(
-    ({
-      forWhomId,
-      myUserId,
-      initiator,
-      forWhomSocketId,
-      stream,
-      socket,
-      roomId,
-    }: NewPeerProps) => {
-      const peer = createPeer(initiator, stream);
+    ({ forWhomId, initiator, forWhomSocketId, signal }: NewPeerProps) => {
+      const peer = createPeer(initiator, myStream);
       if (peer) {
         peer.on("signal", (data) => {
           if (socket) {
@@ -76,23 +55,44 @@ const useScreenShare = ({ roomId }: Props) => {
           }
         });
         peer.on("stream", (foreignStream) => {
-          console.log(typeof foreignStream, "peer/stream");
+          // console.log(typeof foreignStream, "peer/stream");
           // TODO: what if the stream is an array? handle those
-          addForeignStream(foreignStream, "display");
+          // foreignStream.getTracks().forEach((track) => {
+          //   track.addEventListener("ended", () => {
+          //     foreignStream.removeTrack(track);
+          //   });
+          // });
+          addForeignStream(forWhomId, foreignStream);
         });
         peer.on("close", (reason: any) => {
           // remove peer from state
-          console.log(" peer closed ", reason);
+          peer.destroy();
+          removePeer(forWhomId);
+          removeStream(forWhomId);
+          // console.log(" peer closed ", reason);
         });
         peer.on("error", (err) => {
           // remove from state and destroy peer;
-          throw err;
+          removeStream(forWhomId);
+          peer.destroy();
+          removePeer(forWhomId);
+          console.error(err);
         });
-
+        if (signal) {
+          peer.signal(signal);
+        }
         addPeer(forWhomId, peer);
       }
     },
-    [addForeignStream, addPeer]
+    [
+      addForeignStream,
+      removeStream,
+      addPeer,
+      removePeer,
+      roomId,
+      socket,
+      myStream,
+    ]
   );
 
   const stopSharing = () => {
@@ -100,8 +100,8 @@ const useScreenShare = ({ roomId }: Props) => {
     peerMap.forEach((peer) => {
       peer.removeStream(myStream);
     });
-    setIsSharing(false);
     stopStream(myStream);
+    setMyStream(null);
   };
   const startSharing = async () => {
     try {
@@ -109,53 +109,17 @@ const useScreenShare = ({ roomId }: Props) => {
         { video: videoConstraints, audio: audioConstraints },
         stopSharing
       );
-      addMyStream(stream);
-      setIsSharing(true);
+      peerMap.forEach((peer) => {
+        peer.addStream(stream);
+      });
+      setMyStream(stream);
     } catch (error) {
       console.error(error);
     }
   };
 
-  useEffect(() => {
-    setIsSharing(Boolean(myStream));
-  }, [myStream]);
-
-  // init socket connection
-  useEffect(() => {
-    console.log("socket initialize");
-    if (!socket) {
-      throw new Error("ooops no sockets detected, please create a socket");
-    }
-    socket.connect();
-    return () => {
-      socket.disconnect();
-    };
-  }, [socket]);
-
-  // connecting to room
-  useEffect(() => {
-    const joinedListener = (roomId: string) => {
-      notification.update();
-    };
-    try {
-      if (!socket)
-        throw new Error("oops no sockets initialized , please create one");
-      socket.emit(socketEvents.join, roomId);
-      notification.start();
-
-      socket.once(socketEvents.joined, joinedListener);
-    } catch (err) {
-      console.error(err);
-    }
-    return () => {
-      if (!socket)
-        throw new Error("oops no sockets initialized , please create one");
-
-      socket.off(socketEvents.joined, joinedListener);
-    };
-  }, [socket, roomId, notification]);
-
-  // creating peer
+  // on friend join and on receive request
+  // peer creation
   useEffect(() => {
     if (!socket) return;
     const onFriendJoined = ({
@@ -165,63 +129,68 @@ const useScreenShare = ({ roomId }: Props) => {
       whoJoinedId: string;
       whoJoinedSockId: string;
     }) => {
-      console.log("friend joined - ", whoJoinedId);
+      // console.log("friend joined - ", whoJoinedId);
+      // alert("mey mey");
       createNewPeerForUser({
-        myUserId: userId,
         forWhomId: whoJoinedId,
         forWhomSocketId: whoJoinedSockId,
-        stream: myStream,
         initiator: true,
-        socket,
-        roomId,
       });
     };
     socket.on(socketEvents.friendJoined, onFriendJoined);
 
-    const onReceive = ({
-      fromWhomId,
-      fromWhomSockId,
-    }: {
-      fromWhomSockId: string;
-      fromWhomId: string;
-    }) => {
-      createNewPeerForUser({
-        forWhomId: fromWhomId,
-        forWhomSocketId: fromWhomSockId,
-        stream: myStream,
-        initiator: false,
-        myUserId: userId,
-        roomId,
-        socket,
-      });
-    };
-    socket.on(socketEvents.receive, onReceive);
+    // const onReceive = ({
+    //   fromWhomId,
+    //   fromWhomSockId,
+    // }: {
+    //   fromWhomSockId: string;
+    //   fromWhomId: string;
+    // }) => {
+    //   // alert("hey hey");
+    //   createNewPeerForUser({
+    //     forWhomId: fromWhomId,
+    //     forWhomSocketId: fromWhomSockId,
+    //     initiator: false,
+    //   });
+    // };
+    // socket.on(socketEvents.receive, onReceive);
     return () => {
       socket.off(socketEvents.friendJoined, onFriendJoined);
-      socket.off(socketEvents.receive, onReceive);
+      // socket.off(socketEvents.receive, onReceive);
     };
-  }, [socket, createNewPeerForUser, myStream, userId, roomId]);
+  }, [socket, createNewPeerForUser]);
 
   // signalling
   useEffect(() => {
     if (!socket) return;
     const onReceiveSignal = ({
+      fromWhomSockId,
       fromWhomId,
       signal,
     }: {
+      fromWhomSockId: string;
       fromWhomId: string;
       signal: any;
     }) => {
-      console.log("receiving signal from friend - ", fromWhomId);
-      peerMap.get(fromWhomId)?.signal(signal);
+      // console.log("receiving signal from friend - ", fromWhomId);
+      // alert("mew mew");
+      if (peerMap.has(fromWhomId)) {
+        peerMap.get(fromWhomId)!.signal(signal);
+      } else {
+        createNewPeerForUser({
+          forWhomId: fromWhomId,
+          forWhomSocketId: fromWhomSockId,
+          initiator: false,
+          signal,
+        });
+      }
     };
     socket.on(socketEvents.receiveSignal, onReceiveSignal);
     return () => {
       socket.off(socketEvents.receiveSignal, onReceiveSignal);
     };
-  }, [socket, peerMap]);
+  }, [socket, peerMap, createNewPeerForUser]);
   return {
-    isSharing,
     startSharing,
     stopSharing,
   };

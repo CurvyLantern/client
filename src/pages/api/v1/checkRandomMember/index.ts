@@ -5,10 +5,13 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  try {
-    const testClient = await connectToDatabase();
-    return res.status(200).json({ hello: "mom" });
-  } catch (error) {
-    return res.status(404).json({ hi: "hello" });
+  const { method, query } = req;
+  console.log(query, "query");
+  if (method === "GET") {
+    await connectToDatabase();
+    return res.status(200).json({
+      state: true,
+    });
   }
+  return res.end();
 }

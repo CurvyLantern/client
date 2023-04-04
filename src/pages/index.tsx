@@ -1,102 +1,27 @@
 import { useBoundStore } from "@/store";
 import { useRoomCheckerToast, useRoomCreateToast } from "@/utils/Notifications";
-import {
-  Button,
-  Container,
-  createStyles,
-  Flex,
-  Group,
-  Modal,
-  Text,
-  TextInput,
-  useMantineTheme,
-} from "@mantine/core";
+import { Button, Flex, Modal, TextInput, useMantineTheme } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
-const BREAKPOINT = "@media (max-width: 755px)";
-
-const useStyles = createStyles((theme) => ({
-  wrapper: {
-    position: "relative",
-    height: "100vh",
-    overflow: "hidden",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxSizing: "border-box",
-    backgroundColor:
-      theme.colorScheme === "dark" ? theme.colors.dark[8] : theme.white,
-  },
-
-  inner: {
-    position: "relative",
-    paddingTop: 200,
-    paddingBottom: 120,
-
-    [BREAKPOINT]: {
-      paddingBottom: 80,
-      paddingTop: 80,
-    },
-  },
-
-  title: {
-    fontFamily: `Greycliff CF, ${theme.fontFamily}`,
-    fontSize: 62,
-    fontWeight: 900,
-    lineHeight: 1.1,
-    margin: 0,
-    padding: 0,
-    color: theme.colorScheme === "dark" ? theme.white : theme.black,
-
-    [BREAKPOINT]: {
-      fontSize: 42,
-      lineHeight: 1.2,
-    },
-  },
-
-  description: {
-    marginTop: theme.spacing.xl,
-    fontSize: 24,
-
-    [BREAKPOINT]: {
-      fontSize: 18,
-    },
-  },
-
-  controls: {
-    marginTop: theme.spacing.xl * 2,
-
-    [BREAKPOINT]: {
-      marginTop: theme.spacing.xl,
-    },
-  },
-
-  control: {
-    height: 54,
-    paddingLeft: 38,
-    paddingRight: 38,
-
-    [BREAKPOINT]: {
-      height: 54,
-      paddingLeft: 18,
-      paddingRight: 18,
-      flex: 1,
-    },
-  },
-}));
-
 const IndexPage = () => {
-  const { classes } = useStyles();
   const router = useRouter();
   const userId = useBoundStore((s) => s.userId);
   const roomCreateToast = useRoomCreateToast();
   const roomCheckerToast = useRoomCheckerToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, { open: openModal, close: closeModal }] =
+    useDisclosure(false);
   const [joinRoomId, setJoinRoomId] = useState("");
 
   const enterWaitlist = (roomId: string) => {
-    router.push(`/waitlist/${roomId}`);
+    const searchStr = new URLSearchParams({
+      roomId,
+    }).toString();
+    router.push({
+      pathname: "waitlist",
+      search: searchStr,
+    });
   };
 
   const onJoinRoom = async (roomId: string) => {
@@ -131,69 +56,72 @@ const IndexPage = () => {
     setConstraints(arr);
   }, []);
   return (
-    <div className={classes.wrapper}>
-      <Container size={700} className={classes.inner}>
-        <h1 className={classes.title}>
+    <div className="relative flex h-full items-center justify-center bg-neutral-900">
+      <div className="relative mx-auto w-11/12 max-w-3xl">
+        <h1 className="m-0 p-0 text-4xl font-extrabold leading-none md:text-6xl">
           It&apos;s{" "}
-          <Text
-            component="span"
-            variant="gradient"
-            gradient={{ from: "pink", to: "white" }}
-            inherit
+          <span
+            className="bg-gradient-to-r
+           from-pink-500 to-white bg-clip-text
+            text-transparent
+            "
           >
             Muvitime
-          </Text>{" "}
-          <Text component="p" inherit my={"sm"} size={"md"}>
-            watch movies with friends
-          </Text>
+          </span>{" "}
         </h1>
+        <p className="m-0 mt-3 p-0 text-3xl font-bold">
+          watch movies with friends
+        </p>
 
-        <Text className={classes.description} color="dimmed">
+        <p className="mt-7 text-xl text-neutral-400 md:text-2xl">
           you don&apos;t have to create an account or pay anything. It&apos;s
           completely free. Just create a room or join one.
-        </Text>
+        </p>
 
-        <Group className={classes.controls}>
-          <Button
-            size="xl"
-            className={classes.control}
-            variant="gradient"
-            gradient={{ from: "pink", to: "purple" }}
+        <div className="mt-14 flex flex-col gap-5 xsm:flex-row">
+          <button
+            className="rounded-md bg-gradient-to-r from-pink-500 
+            to-purple-800 px-9 py-5  outline-transparent"
+            type="button"
             onClick={() => {
               onCreateRoom();
             }}
           >
-            {/* Create Room {Math.random()} */}
             Create Room
-          </Button>
+          </button>
 
-          <Button
-            size="xl"
-            variant="outline"
-            color={"yellow"}
-            className={classes.control}
-            onClick={() => {
-              setIsModalOpen(true);
-            }}
+          <button
+            className="rounded-md border-2 border-yellow-500 bg-transparent px-9 py-5 
+             text-yellow-500 outline-transparent"
+            type="button"
+            onClick={openModal}
           >
+            {/* Create Room {Math.random()} */}
             Join Room
-          </Button>
-        </Group>
-      </Container>
+          </button>
+        </div>
+      </div>
       <Modal
+        styles={() => ({
+          inner: {
+            padding: 0,
+            overflow: "hidden",
+          },
+        })}
         trapFocus
         centered
         opened={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        overlayOpacity={0.7}
-        overlayBlur={3}
-        overlayColor={
-          theme.colorScheme === "dark"
-            ? theme.colors.dark[9]
-            : theme.colors.gray[2]
-        }
+        onClose={closeModal}
+        overlayProps={{
+          color:
+            theme.colorScheme === "dark"
+              ? theme.colors.dark[9]
+              : theme.colors.gray[2],
+          opacity: 0.77,
+          blur: 3,
+        }}
       >
-        <Flex direction={"column"} rowGap={30}>
+        <div className="flex flex-col gap-7">
           <TextInput
             styles={(theme) => ({
               input: {
@@ -202,7 +130,6 @@ const IndexPage = () => {
             })}
             size="xl"
             placeholder="Enter room code"
-            className="text-center"
             value={joinRoomId}
             onChange={(evt) => setJoinRoomId(evt.currentTarget.value)}
           />
@@ -213,29 +140,10 @@ const IndexPage = () => {
           >
             Proceed
           </Button>
-        </Flex>
+        </div>
       </Modal>
     </div>
   );
 };
 
 export default IndexPage;
-
-/* 
-
-<div
-        className="
-      fixed
-      top-0 right-0 z-[2000] w-52 bg-black p-4 text-white opacity-70 shadow-sm"
-      >
-        <table>
-          {constraints.map((obj, idx) => {
-            return (
-              <tr key={idx}>
-                {obj[0]} : {JSON.stringify(obj[1])}
-              </tr>
-            );
-          })}
-        </table>
-      </div>
-*/

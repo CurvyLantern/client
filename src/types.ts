@@ -1,5 +1,6 @@
 import { type MutableRefObject } from "react";
 import type { SimplePeer, Instance } from "simple-peer";
+
 export type MaybeStream = MediaStream | null;
 export type HostCallStreamType = MutableRefObject<MaybeStream>;
 export type MaybeVideoEl = HTMLVideoElement | null;

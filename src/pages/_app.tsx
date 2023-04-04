@@ -1,43 +1,28 @@
+import useNprogress from "@/hooks/useNprogress";
+import { useSocketClient } from "@/hooks/useSocketClient";
 import { useBoundStore } from "@/store";
 import "@/styles/globals.css";
 import { MantineProvider } from "@mantine/core";
-import { NotificationsProvider } from "@mantine/notifications";
+import { Notifications } from "@mantine/notifications";
+import { nanoid } from "nanoid";
 import { AppProps } from "next/app";
 import Head from "next/head";
-import { useRouter } from "next/router";
-import NProgress from "nprogress";
-import "nprogress/nprogress.css";
+
 import { useEffect } from "react";
 
-export default function App(props: AppProps) {
-  const { Component, pageProps } = props;
-  const router = useRouter();
-  const a = useBoundStore((state) => state);
+export default function App({ Component, pageProps }: AppProps) {
+  useNprogress();
+
+  const userId = useBoundStore((s) => s.userId);
+  const setUserId = useBoundStore((s) => s.setUserId);
+  // initializing the socket;
+  // TODO: find a better way to do this;
+  const _socket = useSocketClient();
 
   useEffect(() => {
-    NProgress.configure({ showSpinner: false });
-  }, []);
-
-  useEffect(() => {
-    const handleStart = (url: string) => {
-      console.log(`Loading: ${url}`);
-      NProgress.start();
-    };
-
-    const handleStop = () => {
-      NProgress.done();
-    };
-
-    router.events.on("routeChangeStart", handleStart);
-    router.events.on("routeChangeComplete", handleStop);
-    router.events.on("routeChangeError", handleStop);
-
-    return () => {
-      router.events.off("routeChangeStart", handleStart);
-      router.events.off("routeChangeComplete", handleStop);
-      router.events.off("routeChangeError", handleStop);
-    };
-  }, [router]);
+    if (userId) return;
+    setUserId(`user_${nanoid(10)}`);
+  }, [userId, setUserId]);
 
   return (
     <>
@@ -48,8 +33,6 @@ export default function App(props: AppProps) {
           content="minimum-scale=1, initial-scale=1, width=device-width"
         />
       </Head>
-      {/* <UserDataProvider>
-        <SocketProvider> */}
       <MantineProvider
         withGlobalStyles
         withNormalizeCSS
@@ -58,15 +41,9 @@ export default function App(props: AppProps) {
           colorScheme: "dark",
         }}
       >
-        <NotificationsProvider position="top-center" zIndex={99999}>
-          <div>
-            {/* {process.env.NODE_ENV === "development" ? <DebugPanel /> : null} */}
-            <Component {...pageProps} />
-          </div>
-        </NotificationsProvider>
+        <Notifications position="top-center" />
+        <Component {...pageProps} />
       </MantineProvider>
-      {/* </SocketProvider>
-      </UserDataProvider> */}
     </>
   );
 }
