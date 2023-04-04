@@ -35,7 +35,7 @@ const ActiveMediaUsers: React.FC<ActiveMediaUsersProps> = ({ stream }) => {
   }, [stream, screenStream, voiceStream]);
 
   useEffect(() => {
-    const match = screen instanceof MediaStream;
+    const match = stream instanceof MediaStream;
     setHasScreenStream(match);
   }, [stream]);
   useEffect(() => {
@@ -72,34 +72,34 @@ const ActiveMediaUsers: React.FC<ActiveMediaUsersProps> = ({ stream }) => {
   }, [voiceStream, screenStream]);
 
   return (
-    <div className="flex aspect-9/12 w-56 min-w-[200px] items-center justify-center overflow-hidden rounded-xl bg-gray-600">
-      <div className="bg-green-300 p-10">
-        <audio ref={audioEl} autoPlay controls></audio>
+    <div className="flex flex-col">
+      <audio ref={audioEl} autoPlay controls className="w-full"></audio>
+      <div className="flex aspect-9/12 w-56 min-w-[200px] items-center justify-center overflow-hidden rounded-xl bg-gray-600">
+        {hasScreenStream ? (
+          <>
+            {isWatching ? (
+              <video
+                ref={videoEl}
+                autoPlay
+                controls
+                playsInline
+                className="max-w-full"
+              />
+            ) : (
+              <button
+                onClick={() => {
+                  setIsWatching(true);
+                }}
+                className="rounded-full border-0 px-5 py-3 text-xl shadow-md outline-transparent"
+              >
+                watch stream
+              </button>
+            )}
+          </>
+        ) : (
+          <ActiveUserProfile />
+        )}
       </div>
-      {hasScreenStream ? (
-        <>
-          {isWatching ? (
-            <video
-              ref={videoEl}
-              autoPlay
-              controls
-              playsInline
-              className="max-w-full"
-            />
-          ) : (
-            <button
-              onClick={() => {
-                setIsWatching(true);
-              }}
-              className="rounded-full border-0 px-5 py-3 text-xl shadow-md outline-transparent"
-            >
-              watch stream
-            </button>
-          )}
-        </>
-      ) : (
-        <ActiveUserProfile />
-      )}
     </div>
   );
 };
