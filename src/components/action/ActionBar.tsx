@@ -15,6 +15,7 @@ import {
   TbVideo,
   TbVideoOff,
 } from "react-icons/tb";
+import PopoverButton from "../popup/PopOver";
 import ActionIcon from "./ActionIcon";
 
 interface IActionBar {
@@ -81,7 +82,7 @@ const ActionBar: React.FC<IActionBar> = ({
 
         <ActionIcon iconPositive={TbMessages} iconNegative={TbMessagesOff} />
 
-        <ActionIcon iconPositive={TbDotsVertical} mode="oneWay" />
+        <PopoverButton />
       </div>
     </div>
   );

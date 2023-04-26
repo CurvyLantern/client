@@ -5,7 +5,7 @@ type NullOrMongoose = typeof mongoose | null;
 interface CacheConnection {
   client: NullOrMongoose;
 }
-const MONGO_URI = process.env["MONGO_URI"];
+const MONGO_URI = process.env["MONGODB_URI"];
 if (!MONGO_URI) {
   throw new Error(
     "Please define the Mongo uri environment variable inside .env.local"
