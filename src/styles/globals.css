@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* https://gist.github.com/dmurawsky/d45f068097d181c733a53687edce1919 */
+html,
+body,
+body > div:first-child,
+div#__next {
+  @apply relative h-full min-h-full;
+}
+div#__next {
+  @apply relative;
+}
+
 @layer base {
   .chat_box {
     hyphens: auto;

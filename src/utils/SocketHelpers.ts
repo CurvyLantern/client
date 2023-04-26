@@ -12,21 +12,5 @@ export const socketEvents = {
   askPermission: "asking-permission",
   permissionGranted: "permission-granted",
   permissionRejected: "permission-rejected",
+  grantPermission: "permission-granted",
 } as const;
-export const initSocketClient = (id: string) => {
-  let url = "";
-  if (isDevMode()) {
-    url = "http://localhost:8000/";
-  } else {
-    url = process.env.NEXT_PUBLIC_SOCKET_URL2
-      ? process.env.NEXT_PUBLIC_SOCKET_URL2
-      : "";
-  }
-  return io(url, {
-    transports: ["websocket"],
-    autoConnect: false,
-    auth: {
-      userId: id,
-    },
-  });
-};

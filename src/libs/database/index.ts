@@ -5,9 +5,56 @@ type NullOrMongoose = typeof mongoose | null;
 interface CacheConnection {
   client: NullOrMongoose;
 }
-const cacheConnection: CacheConnection = {
-  client: null,
+const MONGO_URI = process.env["MONGODB_URI"];
+if (!MONGO_URI) {
+  throw new Error(
+    "Please define the Mongo uri environment variable inside .env.local"
+  );
+}
+
+/**
+ * Global is used here to maintain a cached connection across hot reloads
+ * in development. This prevents connections growing exponentially
+ * during API Route usage.
+ */
+interface ICacheConnection {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+declare global {
+  var mongooseCache: ICacheConnection;
+}
+
+const cacheConnection: ICacheConnection = (global.mongooseCache = {
+  conn: null,
+  promise: null,
+});
+
+export const connectToDatabase = async () => {
+  if (cacheConnection.conn) return cacheConnection.conn;
+
+  if (!cacheConnection.promise) {
+    cacheConnection.promise = mongoose
+      .connect(MONGO_URI, {
+        bufferCommands: false,
+      })
+      .then((res) => res);
+  }
+
+  try {
+    cacheConnection.conn = await cacheConnection.promise;
+  } catch (e) {
+    cacheConnection.promise = null;
+    throw e;
+  }
+  return await mongoose
+    .connect(MONGO_URI, {
+      bufferCommands: false,
+    })
+    .then((res) => res);
 };
+
+/* 
 const makeConnection = (client: typeof mongoose) => {
   if (!client)
     throw new Error(
@@ -19,7 +66,6 @@ const currentTime = () => {
   const date = new Date();
   return `${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`;
 };
-export const connectToDatabase = async () => {
   const client = cacheConnection.client;
   if (client) {
     if (
@@ -38,7 +84,8 @@ export const connectToDatabase = async () => {
   cacheConnection.client = await makeConnection(mongoose);
   console.log("created new client", currentTime());
   return cacheConnection.client;
-};
+
+*/
 
 /* 
 type StateUnion2 = keyof typeof mongoose.ConnectionStates;

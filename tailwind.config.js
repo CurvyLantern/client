@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   corePlugins: {
-    preflight: false,
+    preflight: true,
   },
   darkMode: "class",
   content: [
@@ -9,7 +9,16 @@ module.exports = {
     "./src/pages/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      screens: {
+        xsm: "370px",
+        // => @media (min-width: 370px) {...}
+      },
+      aspectRatio: {
+        "9/12": "9 / 12",
+        "9/16": "9 / 16",
+      },
+    },
   },
   plugins: [],
 };

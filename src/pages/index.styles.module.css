@@ -1,0 +1,11 @@
+.chatWrapper {
+  display: grid;
+  gap: 1rem;
+  padding: 2rem;
+  background-color: hsla(0, 70%, 50%, .4);
+}
+.chatBox {
+  padding: 1rem;
+  border-radius: 1rem;
+  box-shadow: 0 0 3px hsla(0, 20%, 50%, .7);
+}

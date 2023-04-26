@@ -1,6 +1,6 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
-import { doesRoomExist } from "@/server/utils/doesRoomExist";
-import { connectToDatabase } from "libs/database";
+import { connectToDatabase } from "@/libs/database";
+import { doesRoomExist } from "@/server/utils/createRoom";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 type Data =
