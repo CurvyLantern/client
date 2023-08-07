@@ -29,7 +29,7 @@ export const getSocket = (server: SocketServer, opts?: IOServerOptions) => {
     {
       transports: ["websocket"],
       cors: {},
-      path: socketPath,
+      // path: socketPath,
     },
     opts
   );

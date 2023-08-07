@@ -15,11 +15,23 @@ export default function App({ Component, pageProps }: AppProps) {
   useSocketClient();
   const userId = useBoundStore((s) => s.userId);
   const setUserId = useBoundStore((s) => s.setUserId);
+  const socket = useBoundStore((s) => s.socket);
 
   useEffect(() => {
     if (userId) return;
     setUserId(`user_${nanoid(10)}`);
   }, [userId, setUserId]);
+
+  useEffect(() => {
+    if (userId && socket) {
+      (socket.auth as { userId: string }).userId = userId;
+      if (socket.connected) {
+        socket.disconnect();
+      } else {
+        socket.connect();
+      }
+    }
+  }, [userId, socket]);
 
   return (
     <>
