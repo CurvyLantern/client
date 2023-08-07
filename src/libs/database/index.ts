@@ -5,7 +5,7 @@ type NullOrMongoose = typeof mongoose | null;
 interface CacheConnection {
   client: NullOrMongoose;
 }
-const MONGO_URI = process.env["MONGODB_URI"];
+const MONGO_URI = process.env["MONGODB_URI_DEV"];
 if (!MONGO_URI) {
   throw new Error(
     "Please define the Mongo uri environment variable inside .env.local"
@@ -42,16 +42,16 @@ export const connectToDatabase = async () => {
   }
 
   try {
-    cacheConnection.conn = await cacheConnection.promise;
+    return (cacheConnection.conn = await cacheConnection.promise);
   } catch (e) {
     cacheConnection.promise = null;
     throw e;
   }
-  return await mongoose
-    .connect(MONGO_URI, {
-      bufferCommands: false,
-    })
-    .then((res) => res);
+  // return await mongoose
+  //   .connect(MONGO_URI, {
+  //     bufferCommands: false,
+  //   })
+  //   .then((res) => res);
 };
 
 /* 

@@ -37,15 +37,22 @@ const IndexPage = () => {
       setJoinRoomId("");
     }
   };
+
+  // create room function
   const onCreateRoom = async () => {
     roomCreateToast.start();
-    const { roomId } = (await fetch(`/api/v1/getNewRoom/${userId}`).then(
-      (res) => res.json()
-    )) as { roomId: string };
-    console.log({ roomId }, "testing");
+    try {
+      const { roomId } = await fetch(`/api/v1/getNewRoom/${userId}`).then<{
+        roomId: string;
+      }>((res) => res.json());
+      console.log({ roomId }, "testing");
+      router.push(`/${roomId}`);
+    } catch (error) {
+      console.error(error);
+    }
     roomCreateToast.update();
-    router.push(`/${roomId}`);
   };
+
   const theme = useMantineTheme();
   return (
     <div className="relative flex h-full items-center justify-center bg-neutral-900">

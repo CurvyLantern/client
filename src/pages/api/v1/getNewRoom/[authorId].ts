@@ -16,7 +16,6 @@ export default async function handler(
   // send data accordingly
   if (req.method === "GET") {
     const authorId = req.query.authorId as string;
-    console.log({ authorId });
 
     await connectToDatabase();
     const { roomId } = await createRoom({

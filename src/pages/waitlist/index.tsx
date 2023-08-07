@@ -13,12 +13,6 @@ const WaitRoom = () => {
   const [isAlreadyAccepted, setAlreadyAccepted] = useState(false);
 
   useEffect(() => {
-    const debug = params.get("roomId");
-    const debug2 = params.get("userId");
-    console.log({ debug, debug2 });
-  }, [params]);
-
-  useEffect(() => {
     const el = videoRef.current;
     if (el) {
       console.log("element exists");
@@ -62,26 +56,25 @@ const WaitRoom = () => {
     if (!router || !params) return () => {};
 
     console.log(socket);
-    if (socket && socket.connected) {
-      console.log("everything is working as expected");
-      const handlePermissionGranted = () => {
-        console.log("got permission to enter meeting");
-        const roomId = params.get("roomId");
-        router.push({
-          pathname: roomId,
-        });
-      };
-      const handlePermissionRejected = () => {
-        console.log("permission not given to me");
-      };
-      socket.on(socketEvents.permissionGranted, handlePermissionGranted);
-      socket.on(socketEvents.permissionRejected, handlePermissionRejected);
+    if (!socket || socket.disconnected) return;
+    console.log("everything is working as expected");
+    const handlePermissionGranted = () => {
+      console.log("got permission to enter meeting");
+      const roomId = params.get("roomId");
+      router.push({
+        pathname: roomId,
+      });
+    };
+    const handlePermissionRejected = () => {
+      console.log("permission not given to me");
+    };
+    socket.on(socketEvents.permissionGranted, handlePermissionGranted);
+    socket.on(socketEvents.permissionRejected, handlePermissionRejected);
 
-      return () => {
-        socket.off(socketEvents.permissionGranted, handlePermissionGranted);
-        socket.off(socketEvents.permissionRejected, handlePermissionRejected);
-      };
-    }
+    return () => {
+      socket.off(socketEvents.permissionGranted, handlePermissionGranted);
+      socket.off(socketEvents.permissionRejected, handlePermissionRejected);
+    };
   }, [socket, params, router]);
 
   const handleAskingForPermission = () => {
@@ -137,6 +130,14 @@ const WaitRoom = () => {
           "
           >
             Ask for permisson
+          </button>
+          <button
+            onClick={() => {
+              socket?.connect();
+              console.log({ socket });
+            }}
+          >
+            connect socket
           </button>
         </div>
       </div>

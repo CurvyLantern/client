@@ -43,7 +43,7 @@ const RoomPage: NextPage<RoomPageProps> = ({ router }) => {
   );
 
   if (!checkingComplete) {
-    return <div>wait checking if you are allowed</div>;
+    return <div>wait let me check if you are allowed</div>;
   }
 
   const onAcceptMember = ({
